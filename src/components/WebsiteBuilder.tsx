@@ -20,7 +20,7 @@ import {
 } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, X, Edit3, Check, FileText, Trash2, GripVertical, Palette, Image, Type, LayoutGrid, CreditCard, Monitor, Square, Columns, Grid3X3, Video, GripHorizontal, Maximize2 } from 'lucide-react'
+import { Plus, X, Edit3, Check, FileText, Trash2, GripVertical, Palette, Image, Type, LayoutGrid, CreditCard, Monitor, Square, Columns, Grid3X3, Video, GripHorizontal, Maximize2, Briefcase, MessageSquare } from 'lucide-react'
 
 // Color Palette - Tailwind CSS inspired
 const colorPalette = {
@@ -302,11 +302,42 @@ interface ComponentContent {
   logoPosition?: { x: number; y: number }
   // Background image for component
   backgroundImage?: string
+  // News items
+  newsItems?: Array<{
+    id: string
+    title: string
+    excerpt: string
+    date: string
+    category: string
+    imageUrl?: string
+  }>
+  // Rental items
+  rentalItems?: Array<{
+    id: string
+    title: string
+    location: string
+    price: number
+    priceType: 'monthly' | 'daily'
+    bedrooms: number
+    area: number
+    imageUrl?: string
+  }>
+  // Job items
+  jobItems?: Array<{
+    id: string
+    title: string
+    company: string
+    location: string
+    salaryMin: number
+    salaryMax: number
+    type: 'full-time' | 'part-time' | 'contract'
+    category: string
+  }>
 }
 
 interface Component {
   id: string
-  type: 'home' | 'about' | 'service' | 'contact' | 'header' | 'footer' | 'card' | 'text' | 'gif' | 'grid' | 'image'
+  type: 'home' | 'about' | 'service' | 'contact' | 'header' | 'footer' | 'card' | 'text' | 'gif' | 'grid' | 'image' | 'news' | 'rental' | 'jobs' | 'contact-form' | 'chatbot'
   content: ComponentContent
   styles: ComponentStyles
 }
@@ -370,6 +401,11 @@ const availableComponents = [
   { type: 'card', label: 'Карт', icon: CreditCard },
   { type: 'text', label: 'Текст', icon: Type },
   { type: 'grid', label: 'Grid', icon: Grid3X3 },
+  { type: 'news', label: 'Мэдээ мэдээлэл', icon: Type },
+  { type: 'rental', label: 'Борлуулалтын зар', icon: CreditCard },
+  { type: 'jobs', label: 'Ажлын зар', icon: Briefcase },
+  { type: 'contact-form', label: 'Холбоо барих форм', icon: CreditCard },
+  { type: 'chatbot', label: 'Чатбот', icon: MessageSquare },
 ]
 
 function DraggableComponent({ 
@@ -1535,6 +1571,189 @@ function DraggableComponent({
             )}
           </div>
         )
+      case 'news':
+        const newsItems = component.content.newsItems || [
+          { id: '1', title: 'Шинэ мэдээ 1', excerpt: 'Мэдээний товч агуулга...', date: '2026-04-01', category: 'Мэдээ', imageUrl: '' },
+          { id: '2', title: 'Шинэ мэдээ 2', excerpt: 'Мэдээний товч агуулга...', date: '2026-04-02', category: 'Зарлал', imageUrl: '' },
+        ]
+        return (
+          <div style={componentStyle}>
+            <h2 className="text-3xl font-bold mb-6 text-center" style={headingStyle}>
+              {component.content.title || 'Мэдээ мэдээлэл'}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {newsItems.map((news) => (
+                <div key={news.id} className="rounded-lg border overflow-hidden" style={{ borderColor: getColorValue(component.styles.borderColor) }}>
+                  {news.imageUrl && (
+                    <img src={news.imageUrl} alt={news.title} className="w-full h-48 object-cover" />
+                  )}
+                  <div className="p-4">
+                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">{news.category}</span>
+                    <h3 className="font-semibold text-lg mt-2" style={headingStyle}>{news.title}</h3>
+                    <p className={`text-sm mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{news.excerpt}</p>
+                    <p className="text-xs text-gray-500 mt-3">{news.date}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      case 'rental':
+        const rentalItems = component.content.rentalItems || [
+          { id: '1', title: '2 өрөө байр', location: 'Сүхбаатар дүүрэг', price: 1500000, priceType: 'monthly', bedrooms: 2, area: 65, imageUrl: '' },
+          { id: '2', title: 'Оффисын зар', location: 'Хан-Уул дүүрэг', price: 5000000, priceType: 'monthly', bedrooms: 0, area: 100, imageUrl: '' },
+        ]
+        return (
+          <div style={componentStyle}>
+            <h2 className="text-3xl font-bold mb-6 text-center" style={headingStyle}>
+              {component.content.title || 'Борлуулалтын зарууд'}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {rentalItems.map((item) => (
+                <div key={item.id} className="rounded-lg border overflow-hidden" style={{ borderColor: getColorValue(component.styles.borderColor) }}>
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.title} className="w-full h-48 object-cover" />
+                  ) : (
+                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                      <span className="text-gray-400">Зураггүй</span>
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <h3 className="font-semibold text-lg" style={headingStyle}>{item.title}</h3>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.location}</p>
+                    <div className="flex items-center gap-4 mt-2 text-sm">
+                      {item.bedrooms > 0 && <span>{item.bedrooms} өрөө</span>}
+                      <span>{item.area} м²</span>
+                    </div>
+                    <p className="text-lg font-bold text-blue-600 mt-3">
+                      {item.price.toLocaleString()}₮/{item.priceType === 'monthly' ? 'сар' : 'өдөр'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      case 'jobs':
+        const jobItems = component.content.jobItems || [
+          { id: '1', title: 'Вэб хөгжүүлэгч', company: 'Tech Solutions', location: 'Улаанбаатар', salaryMin: 3000000, salaryMax: 5000000, type: 'full-time', category: 'IT' },
+          { id: '2', title: 'Маркетингийн менежер', company: 'Mongol Brand', location: 'Улаанбаатар', salaryMin: 2500000, salaryMax: 4000000, type: 'full-time', category: 'Маркетинг' },
+        ]
+        return (
+          <div style={componentStyle}>
+            <h2 className="text-3xl font-bold mb-6 text-center" style={headingStyle}>
+              {component.content.title || 'Ажлын зарууд'}</h2>
+            <div className="space-y-4">
+              {jobItems.map((job) => (
+                <div key={job.id} className="p-4 rounded-lg border" style={{ borderColor: getColorValue(component.styles.borderColor) }}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold text-lg" style={headingStyle}>{job.title}</h3>
+                      <p className="text-sm">{job.company}</p>
+                    </div>
+                    <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">{job.category}</span>
+                  </div>
+                  <div className="flex items-center gap-4 mt-3 text-sm">
+                    <span>{job.location}</span>
+                    <span>{job.salaryMin.toLocaleString()} - {job.salaryMax.toLocaleString()}₮</span>
+                    <span>{job.type === 'full-time' ? 'Бүтэн цагийн' : job.type === 'part-time' ? 'Хагас цагийн' : 'Гэрээт'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      case 'contact-form':
+        return (
+          <div style={componentStyle}>
+            <h2 className="text-3xl font-bold mb-6" style={headingStyle}>
+              {component.content.title || 'Холбоо барих'}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-xl font-semibold mb-4" style={headingStyle}>Байршил</h3>
+                <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-gray-500">Газрын зураг энд харагдана</span>
+                </div>
+                <div className="mt-4 space-y-2">
+                  <p>📍 {component.content.contactInfo?.address || 'Улаанбаатар, Монгол'}</p>
+                  <p>📞 {component.content.contactInfo?.phone || '+976 9911 xxxx'}</p>
+                  <p>✉️ {component.content.contactInfo?.email || 'contact@example.com'}</p>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-4" style={headingStyle}>Бидэнд мессеж илгээх</h3>
+                <div className="space-y-4">
+                  <input type="text" placeholder="Таны нэр" className="w-full p-3 rounded border" style={{ borderColor: getColorValue(component.styles.borderColor) }} />
+                  <input type="email" placeholder="Имэйл хаяг" className="w-full p-3 rounded border" style={{ borderColor: getColorValue(component.styles.borderColor) }} />
+                  <input type="text" placeholder="Гарчиг" className="w-full p-3 rounded border" style={{ borderColor: getColorValue(component.styles.borderColor) }} />
+                  <textarea placeholder="Таны мессеж" rows={4} className="w-full p-3 rounded border" style={{ borderColor: getColorValue(component.styles.borderColor) }} />
+                  <button className="w-full py-3 rounded-lg font-semibold" style={buttonStyle}>
+                    Илгээх
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      case 'chatbot':
+        const [chatOpen, setChatOpen] = useState(false)
+        const [messages, setMessages] = useState<{text: string, isUser: boolean}[]>([
+          { text: 'Сайн байна уу! Бид танд хэрхэн туслах вэ?', isUser: false }
+        ])
+        const [inputMessage, setInputMessage] = useState('')
+        
+        const sendMessage = () => {
+          if (inputMessage.trim()) {
+            setMessages(prev => [...prev, { text: inputMessage, isUser: true }])
+            setInputMessage('')
+            setTimeout(() => {
+              setMessages(prev => [...prev, { text: 'Баярлалаа! Бид таны мессежийг хүлээн авлаа.', isUser: false }])
+            }, 1000)
+          }
+        }
+        
+        return (
+          <div style={componentStyle} className="relative">
+            <h2 className="text-3xl font-bold mb-4 text-center" style={headingStyle}>
+              {component.content.title || 'Live Chat'}</h2>
+            <p className="text-center mb-6">Бидэнтэй шуурхай холбогдохын тулд чат нээнэ үү</p>
+            
+            {/* Floating Chat Button */}
+            <button
+              onClick={() => setChatOpen(!chatOpen)}
+              className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 z-50 flex items-center justify-center"
+            >
+              {chatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+            </button>
+            
+            {/* Chat Window */}
+            {chatOpen && (
+              <div className="fixed bottom-24 right-6 w-80 h-96 bg-white rounded-lg shadow-2xl z-50 flex flex-col border">
+                <div className="p-4 bg-blue-600 text-white rounded-t-lg">
+                  <h3 className="font-semibold">Live Chat</h3>
+                </div>
+                <div className="flex-1 p-4 overflow-y-auto space-y-3">
+                  {messages.map((msg, idx) => (
+                    <div key={idx} className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
+                      <span className={`px-3 py-2 rounded-lg max-w-[80%] text-sm ${msg.isUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
+                        {msg.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 border-t flex gap-2">
+                  <input
+                    type="text"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    placeholder="Мессеж бичнэ үү..."
+                    className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                  />
+                  <button onClick={sendMessage} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Илгээх</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )
       default:
         return <div style={componentStyle}><p>{component.type} component</p></div>
     }
@@ -2131,6 +2350,137 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
     )
   }
 
+  // Site generation and deployment
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishStatus, setPublishStatus] = useState<{url?: string, port?: number, message?: string} | null>(null)
+  const [projectName, setProjectName] = useState('my-website')
+
+  const handlePublish = async () => {
+    setIsPublishing(true)
+    try {
+      // Step 1: Save design to backend using correct endpoint
+      const design = {
+        projectName,
+        theme: {
+          primaryColor: '#3b82f6',
+          secondaryColor: '#1f2937',
+          fontFamily: 'Inter',
+          darkMode: isDarkMode
+        },
+        pages: pages.map(page => ({
+          route: page.path,
+          title: page.name,
+          description: '',
+          components: page.components.map((comp, idx) => ({
+            type: comp.type.charAt(0).toUpperCase() + comp.type.slice(1), // Capitalize first letter
+            props: comp.content,
+            order: idx
+          }))
+        }))
+      }
+
+      const saveResponse = await fetch('http://202.179.6.77:4000/api/designs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(design),
+      })
+
+      if (!saveResponse.ok) {
+        const errorText = await saveResponse.text()
+        throw new Error(`Failed to save design: ${saveResponse.status} ${errorText}`)
+      }
+
+      // Step 2: Generate and deploy site
+      const response = await fetch('http://202.179.6.77:4000/api/sites/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectName }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setPublishStatus({
+          url: data.url,
+          port: data.port,
+          message: data.message,
+        })
+        alert(`Сайт амжилттай нийтлэгдлээ!\nURL: ${data.url}`)
+      } else {
+        alert('Сайт нийтлэхэд алдаа гарлаа: ' + (data.error || 'Unknown error'))
+      }
+    } catch (error) {
+      console.error('Publish error:', error)
+      alert('Сайт нийтлэхэд алдаа гарлаа: ' + (error as Error).message)
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
+  // Also add a simple save handler
+  const handleSave = async () => {
+    try {
+      // Sanitize project name - remove special characters
+      const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()
+      
+      const design = {
+        projectName: cleanProjectName,
+        theme: {
+          primaryColor: '#3b82f6',
+          secondaryColor: '#1f2937',
+          fontFamily: 'Inter',
+          darkMode: isDarkMode
+        },
+        pages: pages.map(page => ({
+          route: page.path,
+          title: page.name,
+          description: '',
+          components: page.components.map((comp, idx) => ({
+            type: comp.type.charAt(0).toUpperCase() + comp.type.slice(1),
+            props: comp.content,
+            order: idx
+          }))
+        }))
+      }
+
+      // Try multiple endpoint variations
+      const endpoints = [
+        'http://202.179.6.77:4000/api/designs',
+        'http://202.179.6.77:4000/api/designs/',
+        `http://202.179.6.77:4000/api/designs/${cleanProjectName}`,
+        'http://202.179.6.77:4000/api/sites/design',
+      ]
+
+      let lastError = null
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying endpoint: ${endpoint}`)
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(design),
+          })
+
+          if (response.ok) {
+            alert('Дизайн хадгалагдлаа!')
+            return
+          } else {
+            lastError = `${endpoint}: ${response.status}`
+            console.log(`Failed: ${lastError}`)
+          }
+        } catch (err) {
+          lastError = `${endpoint}: ${(err as Error).message}`
+          console.log(`Error: ${lastError}`)
+        }
+      }
+
+      throw new Error(`All endpoints failed. Last error: ${lastError}`)
+    } catch (error) {
+      console.error('Save error:', error)
+      alert('Хадгалахад алдаа гарлаа: ' + (error as Error).message + '\n\nТаны backend-д POST /api/designs endpoint байгаа эсэхийг шалгана уу.')
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
@@ -2138,10 +2488,58 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Вэбсайт угсрах</h2>
           <p className="mt-2 text-gray-600 dark:text-gray-300">Хуудас бүтээхийн тулд бүрдлүүдийг чирнэ үү</p>
         </div>
-        <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-          Хадгалах
-        </button>
+        <div className="flex items-center gap-4">
+          {/* Project Name Input */}
+          <div className="flex items-center gap-2">
+            <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Проект:</label>
+            <input
+              type="text"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              className={`px-3 py-2 border rounded-lg text-sm ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+              placeholder="Проектийн нэр"
+            />
+          </div>
+          
+          {/* Save Button */}
+          <button 
+            onClick={handleSave}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Хадгалах
+          </button>
+          
+          {/* Publish/Deploy Button */}
+          <button
+            onClick={handlePublish}
+            disabled={isPublishing}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isPublishing ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                Нийтлэж байна...
+              </>
+            ) : (
+              <>
+                <span>🚀</span>
+                Нийтлэх
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Publish Status */}
+      {publishStatus && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <h4 className="font-semibold text-green-800 mb-2">Сайт амжилттай нийтлэгдлээ!</h4>
+          <p className="text-sm text-green-700">
+            URL: <a href={publishStatus.url} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">{publishStatus.url}</a>
+          </p>
+          <p className="text-xs text-green-600 mt-1">Port: {publishStatus.port}</p>
+        </div>
+      )}
 
       {/* Page Management */}
       <div className="mb-6 p-4 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700">
