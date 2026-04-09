@@ -60,6 +60,14 @@ export const authApi = {
 
 // ==================== PROJECTS ====================
 export const projectApi = {
+  // List all projects
+  list: async () => {
+    const response = await fetch(`${getApiUrl()}/api/v2/core/projects`, {
+      headers: headers(),
+    })
+    return handleResponse(response)
+  },
+
   // Create project
   create: async (projectName: string) => {
     const response = await fetch(`${getApiUrl()}/api/v2/core/projects/generate`, {

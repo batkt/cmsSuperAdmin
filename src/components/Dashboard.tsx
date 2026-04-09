@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect, createContext, useContext } from 'react'
-import Sidebar from './Sidebar'
-import UserManagement from './UserManagement'
-import WebsiteBuilder from './WebsiteBuilder'
-import LayoutBuilder from './LayoutBuilder'
-import TemplateLibrary from './TemplateLibrary'
-import ProjectManagement from './ProjectManagement'
-import Login from './Login'
 import { LogOut } from 'lucide-react'
+import {
+  Sidebar,
+  UserManagement,
+  WebsiteBuilder,
+  TemplateLibrary,
+  ProjectManagement,
+  Login,
+} from './index'
 
 // API Context for sharing token and API URL across components
 interface ApiContextType {

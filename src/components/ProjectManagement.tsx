@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { 
-  Plus, Trash2, Play, Square, Loader2, Server, 
+  Trash2, Play, Square, Loader2, Server, 
   Globe, Database, ExternalLink, RefreshCw, CheckCircle, XCircle 
 } from 'lucide-react'
 import { projectApi } from '@/lib/api-service'
@@ -25,8 +25,6 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [newProjectName, setNewProjectName] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
   const [actionInProgress, setActionInProgress] = useState<string | null>(null)
 
   // Load projects on mount
@@ -36,38 +34,15 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
 
   const loadProjects = async () => {
     try {
-      // Since there's no list endpoint, we'll rely on local state
-      // In real implementation, you'd have a GET /projects endpoint
-      setIsLoading(false)
-    } catch (err: any) {
-      setError(err.message)
-      setIsLoading(false)
-    }
-  }
-
-  const createProject = async () => {
-    if (!newProjectName.trim()) return
-    
-    setIsCreating(true)
-    setError('')
-    
-    try {
-      const response = await projectApi.create(newProjectName.trim())
-      const newProject: Project = {
-        name: response.project.name,
-        port: response.project.port,
-        status: response.project.status,
-        path: response.project.path,
-        dbName: response.project.dbName,
-        dbStatus: response.project.dbStatus,
-        url: response.url,
+      // Load projects from backend API
+      const response = await projectApi.list()
+      if (response.projects) {
+        setProjects(response.projects)
       }
-      setProjects([...projects, newProject])
-      setNewProjectName('')
+      setIsLoading(false)
     } catch (err: any) {
       setError(err.message)
-    } finally {
-      setIsCreating(false)
+      setIsLoading(false)
     }
   }
 
@@ -77,7 +52,8 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
     setActionInProgress(name)
     try {
       await projectApi.delete(name)
-      setProjects(projects.filter(p => p.name !== name))
+      // Reload projects from backend after delete
+      await loadProjects()
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -166,41 +142,7 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
         </div>
       )}
 
-      {/* Create Project */}
-      <div className={`mb-8 p-6 rounded-xl border shadow-lg ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Шинэ төсөл үүсгэх</h2>
-        <div className="flex gap-4">
-          <input
-            type="text"
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-            placeholder="Төслийн нэр (жишээ: client-website)"
-            className={`flex-1 px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-              isDarkMode 
-                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                : 'bg-white border-gray-300'
-            }`}
-            onKeyPress={(e) => e.key === 'Enter' && createProject()}
-          />
-          <button
-            onClick={createProject}
-            disabled={isCreating || !newProjectName.trim()}
-            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/50 text-white font-medium rounded-lg flex items-center gap-2"
-          >
-            {isCreating ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Plus className="w-5 h-5" />
-            )}
-            Үүсгэх
-          </button>
-        </div>
-        <p className={`mt-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-          Төслийн нэр давтагдахгүй, URL-д тохиромжтой байх ёстой (жижиг үсэг, хоосон зайгүй)
-        </p>
-      </div>
-
-      {/* Projects List */}
+      {/* Projects List - Display projects created from WebsiteBuilder */}
       <div className={`rounded-xl border overflow-hidden shadow-lg ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className={`px-6 py-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
           <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Төслүүд ({projects.length})</h2>
@@ -210,7 +152,7 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
           <div className="p-12 text-center">
             <Server className={`w-16 h-16 mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} />
             <p className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
-              Төсөл байхгүй. Дээрээс эхний төслөө үүсгэнэ үү.
+              Төсөл байхгүй. Вебсайт угсрах-аас шинэ төсөл үүсгэнэ үү.
             </p>
           </div>
         ) : (

@@ -3071,21 +3071,24 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
     <div className="p-4 sm:p-6 lg:p-8 min-h-screen">
       {/* Header - Stack on mobile, row on desktop */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Вэбсайт угсрах</h2>
-          <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300">Хуудас бүтээхийн тулд бүрдлүүдийг чирнэ үү</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Вэбсайт угсрах</h2>
+            <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300">Хуудас бүтээхийн тулд бүрдлүүдийг чирнэ үү</p>
+          </div>
+          
         </div>
         {/* Action Buttons - Wrap on mobile */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full lg:w-auto">
           {/* Project Name Input */}
           <div className="flex items-center gap-2 flex-1 sm:flex-none">
-            <label className={`text-sm hidden sm:inline ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Прожект:</label>
+            <label className={`text-sm hidden sm:inline ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Проектийн нэр:</label>
             <input
               type="text"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className={`px-3 py-2 border rounded-lg text-sm w-full sm:w-auto ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-              placeholder="Прожектийн нэр"
+              className={`px-3 py-2 border rounded-lg text-sm w-full sm:w-auto font-medium ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+              placeholder="Төслийн нэр оруулна уу"
             />
           </div>
           
