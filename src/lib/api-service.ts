@@ -6,6 +6,13 @@ const getToken = () => localStorage.getItem('superadminToken') || localStorage.g
 const isLatin1Safe = (value: string) => /^[\x00-\xFF]*$/.test(value)
 const getComponentApiBase = () => '/api/proxy/api/v2/core/components'
 
+type ComponentPayload = {
+  componentType?: string
+  pageRoute?: string
+  props?: Record<string, any>
+  content?: object | string
+}
+
 const headers = (includeProject = false, projectName?: string) => {
   const h: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -30,6 +37,23 @@ const componentHeaders = (projectName: string) => {
     baseHeaders['x-project-name'] = normalizedProject
   }
   return baseHeaders
+}
+
+const ensureComponentRequiredProps = (payload: ComponentPayload): ComponentPayload => {
+  const type = payload.componentType?.toLowerCase()
+  if (!type) return payload
+
+  const nextProps: Record<string, any> = { ...(payload.props || {}) }
+  const title = typeof nextProps.title === 'string' ? nextProps.title.trim() : ''
+
+  if ((type === 'header' || type === 'hero') && !title) {
+    nextProps.title = type === 'header' ? 'Site Header' : 'Welcome'
+  }
+
+  return {
+    ...payload,
+    props: nextProps,
+  }
 }
 
 // Error handler
@@ -253,11 +277,12 @@ export const componentApi = {
     content?: object | string
   }) => {
     const normalizedProject = projectName.trim()
+    const safeData = ensureComponentRequiredProps(data)
     const response = await fetch(`${getComponentApiBase()}?projectId=${encodeURIComponent(normalizedProject)}`, {
       method: 'POST',
       headers: componentHeaders(normalizedProject),
       body: JSON.stringify({
-        ...data,
+        ...safeData,
         projectId: normalizedProject,
       }),
     })
@@ -272,11 +297,12 @@ export const componentApi = {
     content?: object | string
   }) => {
     const normalizedProject = projectName.trim()
+    const safeData = ensureComponentRequiredProps(data)
     const response = await fetch(`${getComponentApiBase()}/${instanceId}?projectId=${encodeURIComponent(normalizedProject)}`, {
       method: 'PATCH',
       headers: componentHeaders(normalizedProject),
       body: JSON.stringify({
-        ...data,
+        ...safeData,
         projectId: normalizedProject,
       }),
     })
