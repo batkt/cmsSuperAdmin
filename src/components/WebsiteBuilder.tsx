@@ -2825,6 +2825,23 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
           props.backgroundVideo = page.backgroundVideo
         }
 
+        // Backend validators require these fields for specific component types.
+        if (comp.type === 'header') {
+          props.title = typeof props.title === 'string' && props.title.trim()
+            ? props.title
+            : cleanProjectName
+        }
+        if (normalizedType === 'hero') {
+          props.title = typeof props.title === 'string' && props.title.trim()
+            ? props.title
+            : `Welcome to ${cleanProjectName}`
+        }
+        if (comp.type === 'about') {
+          props.description = typeof props.description === 'string' && props.description.trim()
+            ? props.description
+            : `${cleanProjectName} introduction`
+        }
+
         return {
           componentType: normalizedType,
           pageRoute,

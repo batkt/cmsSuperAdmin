@@ -4,6 +4,7 @@
 const getApiUrl = () => localStorage.getItem('apiUrl') || 'http://202.179.6.77:4000'
 const getToken = () => localStorage.getItem('superadminToken') || localStorage.getItem('token') || ''
 const isLatin1Safe = (value: string) => /^[\x00-\xFF]*$/.test(value)
+const getComponentApiBase = () => '/api/proxy/api/v2/core/components'
 
 const headers = (includeProject = false, projectName?: string) => {
   const h: Record<string, string> = {
@@ -252,7 +253,7 @@ export const componentApi = {
     content?: object | string
   }) => {
     const normalizedProject = projectName.trim()
-    const response = await fetch(`${getApiUrl()}/api/v2/core/components?projectId=${encodeURIComponent(normalizedProject)}`, {
+    const response = await fetch(`${getComponentApiBase()}?projectId=${encodeURIComponent(normalizedProject)}`, {
       method: 'POST',
       headers: componentHeaders(normalizedProject),
       body: JSON.stringify({
@@ -271,7 +272,7 @@ export const componentApi = {
     content?: object | string
   }) => {
     const normalizedProject = projectName.trim()
-    const response = await fetch(`${getApiUrl()}/api/v2/core/components/${instanceId}?projectId=${encodeURIComponent(normalizedProject)}`, {
+    const response = await fetch(`${getComponentApiBase()}/${instanceId}?projectId=${encodeURIComponent(normalizedProject)}`, {
       method: 'PATCH',
       headers: componentHeaders(normalizedProject),
       body: JSON.stringify({
@@ -289,7 +290,7 @@ export const componentApi = {
     parentId?: string | null
   }>) => {
     const normalizedProject = projectName.trim()
-    const response = await fetch(`${getApiUrl()}/api/v2/core/components/reorder?projectId=${encodeURIComponent(normalizedProject)}`, {
+    const response = await fetch(`${getComponentApiBase()}/reorder?projectId=${encodeURIComponent(normalizedProject)}`, {
       method: 'POST',
       headers: componentHeaders(normalizedProject),
       body: JSON.stringify({ instances, projectId: normalizedProject }),
