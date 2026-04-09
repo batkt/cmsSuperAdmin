@@ -17,7 +17,7 @@ const menuItems = [
   { id: 'projects', label: 'Төслүүд', title: 'Төсөл удирдлага', icon: FolderOpen },
   { id: 'users', label: 'Хэрэглэгчид', title: 'Хэрэглэгч удирдлага', icon: Users },
   { id: 'builder', label: 'Вэбсайт угсрах', title: 'Вэб бүтэц бүтээгч', icon: Boxes },
-  { id: 'templates', label: 'Загварууд', title: 'Загвар сан', icon: LayoutTemplate },
+  //{ id: 'templates', label: 'Загварууд', title: 'Загвар сан', icon: LayoutTemplate },
 ]
 
 export default function Sidebar({ 
@@ -37,9 +37,8 @@ export default function Sidebar({
   return (
     <div className={`w-64 shadow-lg flex flex-col h-full ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
       {/* Header */}
-      <div className={`p-6 border-b ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
-        <h1 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Супер Админ</h1>
-        <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>zevtabs 2026</p>
+      <div className={`p-5 ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
+        <h1 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}></h1>
       </div>
 
       {/* Project Name - only show when in builder */}

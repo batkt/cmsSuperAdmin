@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react'
 import { 
   Trash2, Play, Square, Loader2, Server, 
-  Globe, Database, ExternalLink, RefreshCw, CheckCircle, XCircle 
+  Globe, Database, ExternalLink, RefreshCw, CheckCircle, XCircle,
+  Edit3
 } from 'lucide-react'
 import { projectApi } from '@/lib/api-service'
 
 interface ProjectManagementProps {
   isDarkMode: boolean
+  onEditProject?: (projectName: string) => void
 }
 
 interface Project {
@@ -21,7 +23,7 @@ interface Project {
   url?: string
 }
 
-export default function ProjectManagement({ isDarkMode }: ProjectManagementProps) {
+export default function ProjectManagement({ isDarkMode, onEditProject }: ProjectManagementProps) {
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -33,14 +35,23 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
   }, [])
 
   const loadProjects = async () => {
+    setIsLoading(true)
+    setError('')
     try {
       // Load projects from backend API
       const response = await projectApi.list()
-      if (response.projects) {
-        setProjects(response.projects)
+      console.log('Projects API response:', response)
+      
+      // Handle different response structures
+      const projectsData = response.projects || response.data?.projects || response
+      if (Array.isArray(projectsData)) {
+        setProjects(projectsData)
+      } else {
+        setProjects([])
       }
       setIsLoading(false)
     } catch (err: any) {
+      console.error('Failed to load projects:', err)
       setError(err.message)
       setIsLoading(false)
     }
@@ -144,8 +155,16 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
 
       {/* Projects List - Display projects created from WebsiteBuilder */}
       <div className={`rounded-xl border overflow-hidden shadow-lg ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <div className={`px-6 py-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
           <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Төслүүд ({projects.length})</h2>
+          <button
+            onClick={loadProjects}
+            disabled={isLoading}
+            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title="Жагсаалт шинэчлэх"
+          >
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
         
         {projects.length === 0 ? (
@@ -191,6 +210,21 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Edit Project */}
+                  {onEditProject && (
+                    <button
+                      onClick={() => onEditProject(project.name)}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isDarkMode 
+                          ? 'hover:bg-gray-700 text-blue-400' 
+                          : 'hover:bg-gray-100 text-blue-600'
+                      }`}
+                      title="Засварлах"
+                    >
+                      <Edit3 className="w-5 h-5" />
+                    </button>
+                  )}
+
                   {/* Generate Site */}
                   <button
                     onClick={() => generateSite(project.name)}

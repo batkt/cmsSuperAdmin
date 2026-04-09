@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [websiteName, setWebsiteName] = useState('My Project')
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
+  const [editingProjectName, setEditingProjectName] = useState<string | undefined>(undefined)
   const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
   const [apiUrl, setApiUrl] = useState('http://202.179.6.77:4000')
@@ -74,6 +75,16 @@ export default function Dashboard() {
 
   const handleUseTemplate = (template: any) => {
     setSelectedTemplate(template)
+    setEditingProjectName(undefined)
+    setActiveTab('builder')
+  }
+
+  const handleEditProject = (projectName: string) => {
+    setWebsiteName(projectName)
+    setEditingProjectName(projectName)
+    // Store in localStorage so WebsiteBuilder can load it
+    localStorage.setItem('currentProject', projectName)
+    localStorage.setItem('projectName', projectName)
     setActiveTab('builder')
   }
 
@@ -106,12 +117,13 @@ export default function Dashboard() {
             template={selectedTemplate}
             apiUrl={apiUrl}
             token={token}
+            initialProjectName={editingProjectName}
           />
         )
       case 'templates':
         return <TemplateLibrary isDarkMode={isDarkMode} onUseTemplate={handleUseTemplate} />
       case 'projects':
-        return <ProjectManagement isDarkMode={isDarkMode} />
+        return <ProjectManagement isDarkMode={isDarkMode} onEditProject={handleEditProject} />
       default:
         return (
           <div className={`p-8 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white/90 backdrop-blur text-gray-900'}`}>
@@ -136,8 +148,8 @@ export default function Dashboard() {
         />
         <div className="flex-1 overflow-auto flex flex-col">
           {/* Header with logout */}
-          <div className={`flex justify-between items-center px-6 py-4 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-           
+          <div className={`flex justify-between items-center px-6 py-4  ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+           <div></div>
             <button
               onClick={handleLogout}
               className={`flex items-end gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${

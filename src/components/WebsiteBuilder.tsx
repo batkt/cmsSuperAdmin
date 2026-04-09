@@ -1669,9 +1669,10 @@ interface WebsiteBuilderProps {
   template?: any
   apiUrl: string
   token: string
+  initialProjectName?: string
 }
 
-export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiUrl, token }: WebsiteBuilderProps) {
+export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiUrl, token, initialProjectName }: WebsiteBuilderProps) {
   const [pages, setPages] = useState<Page[]>([])  
   
   const [activePageId, setActivePageId] = useState<string>('home')
@@ -1710,26 +1711,16 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
   )
 
   useEffect(() => {
-    if (template && template.components) {
-      // Load template components into the home page
-      const newComponents = template.components.map((comp: any, index: number) => ({
-        ...comp,
-        id: (Date.now() + index).toString(),
-        content: {
-          ...comp.content,
-          // Update title in header and footer with websiteName
-          ...(comp.type === 'header' && { title: websiteName }),
-          ...(comp.type === 'footer' && { title: websiteName, copyright: `© 2026${websiteName}. Бүх эрх хуулиар хамгаалагдсан.` }),
-        }
-      }))
-      
-      setPages(prev => prev.map(page => 
-        page.id === activePageId 
-          ? { ...page, components: newComponents }
-          : page
-      ))
+    if (template) {
+      loadTemplate(template)
+    } else if (initialProjectName) {
+      // Load existing project
+      loadExistingProject(initialProjectName)
+    } else {
+      // Initialize with empty home page
+      addPage('home', 'Home', '/', false)
     }
-  }, [template])
+  }, [template, initialProjectName])
 
   function handleDragStart(event: any) {
     setActiveId(event.active.id)
@@ -2171,10 +2162,94 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
     }
   }
 
-  const addPage = () => {
-    if (newPageName.trim()) {
+  // Load existing project from backend
+  const loadExistingProject = async (projectName: string) => {
+    try {
+      // Fetch components for this project
+      const response = await fetch(`${apiUrl}/api/proxy/api/v2/core/components?projectId=${encodeURIComponent(projectName)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to load project components')
+      }
+      
+      const data = await response.json()
+      const components = data.data?.components || []
+      
+      // Group components by page route
+      const pagesMap = new Map<string, Page>()
+      
+      components.forEach((comp: any) => {
+        const route = comp.pageRoute || '/'
+        const pageId = route.replace(/\//g, '') || 'home'
+        
+        if (!pagesMap.has(route)) {
+          pagesMap.set(route, {
+            id: pageId,
+            name: route === '/' ? 'Home' : route.replace(/\//g, '').charAt(0).toUpperCase() + route.slice(1),
+            path: route,
+            components: [],
+          })
+        }
+        
+        const page = pagesMap.get(route)!
+        page.components.push({
+          id: comp.instanceId || Date.now().toString() + Math.random(),
+          type: comp.componentType?.toLowerCase() || 'home',
+          content: comp.props || {},
+          styles: comp.content?.styles || defaultStyles,
+        })
+      })
+      
+      // If no pages found, create empty home page
+      if (pagesMap.size === 0) {
+        addPage('home', 'Home', '/', false)
+      } else {
+        setPages(Array.from(pagesMap.values()))
+        setActivePageId(Array.from(pagesMap.keys())[0]?.replace(/\//g, '') || 'home')
+      }
+    } catch (err: any) {
+      console.error('Failed to load project:', err)
+      // Fall back to empty home page
+      addPage('home', 'Home', '/', false)
+    }
+  }
+
+  // Load template
+  const loadTemplate = (templateData: any) => {
+    if (templateData?.pages) {
+      const loadedPages = templateData.pages.map((page: any) => ({
+        ...page,
+        components: page.components?.map((comp: any) => ({
+          ...comp,
+          content: {
+            ...comp.content,
+            ...(comp.type === 'header' && { title: websiteName }),
+            ...(comp.type === 'footer' && { title: websiteName, copyright: `© 2026 ${websiteName}. Бүх эрх хуулиар хамгаалагдсан.` }),
+          }
+        })) || []
+      }))
+      setPages(loadedPages)
+      setActivePageId(loadedPages[0]?.id || 'home')
+    }
+  }
+
+  const addPage = (id?: string, name?: string, path?: string, withComponents: boolean = true) => {
+    // Use provided values or fall back to state values (for UI calls)
+    const pageId = id || Date.now().toString()
+    const pageName = name || newPageName
+    const pagePath = path || (pageName ? `/${pageName.toLowerCase().replace(/\s+/g, '-')}` : '/')
+    
+    if (!pageName && !id) return // Don't proceed if no name and no id (invalid UI call)
+    
+    let newComponents: Component[] = []
+    
+    if (withComponents) {
       // Create empty page with just placeholder sections - no default content or colors
-      const newComponents: Component[] = []
       
       // Add header - empty with just image placeholder
       newComponents.push({
@@ -2211,16 +2286,20 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
         },
         styles: { ...defaultStyles, height: '80px' }
       })
-      
-      const newPage: Page = {
-        id: Date.now().toString(),
-        name: newPageName,
-        path: `/${newPageName.toLowerCase().replace(/\s+/g, '-')}`,
-        components: newComponents
-      }
-      
-      setPages([...pages, newPage])
-      setActivePageId(newPage.id)
+    }
+    
+    const newPage: Page = {
+      id: pageId,
+      name: pageName || 'Home',
+      path: pagePath,
+      components: newComponents
+    }
+    
+    setPages([...pages, newPage])
+    setActivePageId(newPage.id)
+    
+    // Only reset UI state if called from UI (no params provided)
+    if (!id && !name && !path) {
       setNewPageName('')
       setIsAddingPage(false)
     }
@@ -2389,7 +2468,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
   // Site generation and deployment
   const [isPublishing, setIsPublishing] = useState(false)
   const [publishStatus, setPublishStatus] = useState<{url?: string, port?: number, message?: string} | null>(null)
-  const [projectName, setProjectName] = useState('Нийтлэх')
+  const [projectName, setProjectName] = useState(initialProjectName || 'Нийтлэх')
   
   // Store project name in localStorage for API calls
   useEffect(() => {
@@ -2898,8 +2977,9 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
       // Step 0: Create project first
       try {
         await projectApi.create(cleanProjectName)
-      } catch {
+      } catch (err: any) {
         // Project might already exist, continue
+        console.log('Project creation (may already exist):', err.message || err)
       }
       
       // Step 1: Save components to component library
@@ -3236,7 +3316,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
               onKeyDown={(e) => e.key === 'Enter' && addPage()}
               autoFocus
             />
-            <button onClick={addPage} className="p-2 text-green-600 hover:bg-green-50 rounded"><Check className="w-4 h-4" /></button>
+            <button onClick={() => addPage()} className="p-2 text-green-600 hover:bg-green-50 rounded"><Check className="w-4 h-4" /></button>
             <button onClick={() => { setIsAddingPage(false); setNewPageName(''); }} className="p-2 text-red-600 hover:bg-red-50 rounded"><X className="w-4 h-4" /></button>
           </div>
         )}
