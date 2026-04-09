@@ -1,12 +1,12 @@
-# CMS Frontend to Backend API Integration Guide
+# API Integration Guide (Refactored MVC)
 
 **Backend URL**: `http://202.179.6.77:4000/api`
 
-This document lists all APIs required to save data from your WebsiteBuilder frontend to the backend.
+This document lists all APIs for the refactored MVC backend architecture.
 
 ---
 
-## 1. Site Design Management
+## 1. Projects API (`/api/projects`)
 
 ### Save Site Design (Primary Save)
 ```http

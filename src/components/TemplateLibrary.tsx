@@ -564,19 +564,19 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
           </div>
           
           {/* Color palette */}
-          <div className={`max-h-48 overflow-y-auto rounded-lg border p-2 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+          <div className={`max-h-48 overflow-y-auto rounded-lg border p-2 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white/20 border-white/30'}`}>
             {/* White and Black */}
             <div className="mb-3">
               <div className="flex gap-1">
                 <button
                   onClick={() => onChange('white')}
-                  className={`w-8 h-8 rounded border-2 transition-all ${value === 'white' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-300 hover:border-gray-400'}`}
+                  className={`w-8 h-8 rounded border-2 transition-all ${value === 'white' ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-300 hover:border-gray-400'}`}
                   style={{ backgroundColor: '#ffffff' }}
                   title="Цагаан"
                 />
                 <button
                   onClick={() => onChange('black')}
-                  className={`w-8 h-8 rounded border-2 transition-all ${value === 'black' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-300 hover:border-gray-400'}`}
+                  className={`w-8 h-8 rounded border-2 transition-all ${value === 'black' ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-300 hover:border-gray-400'}`}
                   style={{ backgroundColor: '#000000' }}
                   title="Хар"
                 />
@@ -592,7 +592,7 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
                     <button
                       key={color}
                       onClick={() => onChange(color)}
-                      className={`w-6 h-6 rounded transition-all ${value === color ? 'ring-2 ring-blue-500 ring-offset-2' : 'hover:scale-110'}`}
+                      className={`w-6 h-6 rounded transition-all ${value === color ? 'ring-2 ring-green-500 ring-offset-2' : 'hover:scale-110'}`}
                       style={{ backgroundColor: getColorValue(color) }}
                       title={color}
                     />
@@ -607,11 +607,11 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
   }
 
   return (
-    <div className={`p-8 ${isDarkMode ? 'text-white' : ''}`}>
+    <div className={`min-h-screen p-8 ${isDarkMode ? 'text-white bg-gray-900' : 'bg-gradient-to-br from-gray-400 via-slate-700 to-emerald-950 text-gray-900'}`}>
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Бэлэн загвар</h2>
-          <p className={`mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Манай мэргэжлийн загваруудаас сонгоно уу</p>
+          <p className={`mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>Манай мэргэжлийн загваруудаас сонгоно уу</p>
         </div>
       </div>
 
@@ -623,7 +623,7 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
             placeholder="Загвар хайх..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
               isDarkMode ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300'
             }`}
           />
@@ -636,10 +636,10 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
               onClick={() => setSelectedCategory(category)}
               className={`px-4 py-2 rounded-lg transition-colors mb-2 ${
                 selectedCategory === category
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-emerald-600 text-white'
                   : isDarkMode 
                     ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-white/80 text-gray-800 hover:bg-white'
               }`}
             >
               {category}
@@ -664,7 +664,7 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
             
             <div className="p-4">
               <div className="flex justify-between items-start mb-2">
-                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{template.name}</h3>
+                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{template.name}</h3>
                 <div className={`flex items-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   <Star className="w-4 h-4 text-yellow-400 mr-1" />
                   {template.rating}
@@ -683,7 +683,7 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
                   className={`flex-1 flex items-center justify-center px-3 py-2 border rounded-lg transition-colors ${
                     isDarkMode 
                       ? 'border-gray-600 hover:bg-gray-700' 
-                      : 'border-gray-300 hover:bg-gray-50'
+                      : 'border-white/30 hover:bg-white/20'
                   }`}
                 >
                   <Eye className="w-4 h-4 mr-2" />
@@ -691,7 +691,7 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
                 </button>
                 <button
                   onClick={() => handleUseTemplate(template)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 flex items-center justify-center px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Ашиглах
@@ -723,7 +723,7 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => handleUseTemplate(previewTemplate)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   <Download className="w-4 h-4 mr-2 inline" />
                   Ашиглах
@@ -746,11 +746,11 @@ export default function TemplateLibrary({ isDarkMode, onUseTemplate }: TemplateL
                         {editingTemplate.components.map((component) => (
                           <div 
                             key={component.id} 
-                            className={`group relative cursor-pointer ${selectedComponentId === component.id ? 'ring-2 ring-blue-500 rounded-lg' : ''}`}
+                            className={`group relative cursor-pointer ${selectedComponentId === component.id ? 'ring-2 ring-green-500 rounded-lg' : ''}`}
                             onClick={() => setSelectedComponentId(component.id)}
                           >
                             <div className="absolute -top-3 -right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                              <button className="p-2 bg-white shadow-md rounded-full text-blue-600">
+                              <button className="p-2 bg-white shadow-md rounded-full text-green-600">
                                 <Edit3 className="w-4 h-4" />
                               </button>
                             </div>

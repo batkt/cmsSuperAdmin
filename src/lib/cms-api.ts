@@ -1,131 +1,216 @@
 // API Service for CMS Backend Integration
-// Base URL: http://202.179.6.77:4000/api
+// Base URL: http://202.179.6.77:4000/api/v2/core
 
-const BASE_URL = 'http://202.179.6.77:4000/api'
+const BASE_URL = 'http://202.179.6.77:4000/api/v2/core'
+
+// Get auth token from localStorage
+const getToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('superadminToken') || localStorage.getItem('token') || ''
+  }
+  return ''
+}
+
+// Get current project name from localStorage
+const getCurrentProject = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('currentProject') || localStorage.getItem('projectName') || ''
+  }
+  return ''
+}
 
 // Helper function for API requests
-async function fetchAPI(endpoint: string, options?: RequestInit) {
+async function fetchAPI(endpoint: string, options?: RequestInit, compress: boolean = false) {
   const url = `${BASE_URL}${endpoint}`
+  
+  let body = options?.body
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${getToken()}`,
+  }
+  
+  // Note: x-project-id header removed due to CORS - using body instead
+  
+  if (options?.headers) {
+    Object.entries(options.headers).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        headers[key] = value
+      }
+    })
+  }
+  
+  // Compress large payloads
+  if (compress && body && typeof body === 'string' && body.length > 10000) {
+    try {
+      const encoder = new TextEncoder()
+      const data = encoder.encode(body)
+      const compressed = await compressData(data)
+      body = compressed
+      headers['Content-Encoding'] = 'gzip'
+      headers['Content-Type'] = 'application/gzip'
+    } catch (e) {
+      console.warn('Compression failed, sending uncompressed:', e)
+    }
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
+    body,
   })
 
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`)
+    const errorText = await response.text().catch(() => 'Unknown error')
+    throw new Error(`API Error ${response.status}: ${errorText}`)
   }
 
   return response.json()
 }
 
-// ==================== 1. COMPONENT LIBRARY MANAGEMENT ====================
+// Compression helper using CompressionStream API
+async function compressData(data: Uint8Array): Promise<Blob> {
+  const buffer = new Uint8Array(data)
+  const stream = new Blob([buffer.buffer]).stream()
+  const compressedStream = stream.pipeThrough(new CompressionStream('gzip'))
+  return new Response(compressedStream).blob()
+}
+
+// Helper to compress and send large payloads
+async function fetchAPICompressed(endpoint: string, options?: RequestInit) {
+  return fetchAPI(endpoint, options, true)
+}
+
+// ==================== 3. COMPONENTS API (/api/v2/core/components) ====================
 
 export interface ComponentTemplate {
-  id?: string
-  type: string // e.g. 'Hero', 'Navbar', 'News', 'Rental', 'Jobs', 'ContactForm', 'Chatbot'
-  scope: 'GLOBAL' | 'PROJECT'
-  projectName?: string | null // Only used if scope is 'PROJECT'
-  category: string // Navbar, Hero, News, Rental, Jobs, Footer, etc.
-  code: string // The React code string
+  type: string // e.g., 'Navbar', 'Hero'
+  category: string // 'Navbar', 'Hero', 'News', etc.
+  code: string // React component code as string
   description?: string
   defaultProps?: Record<string, any>
-  createdAt?: string
+  projectName?: string // If provided, this is a project-specific component
 }
 
 export const ComponentAPI = {
-  // Create or update a component template
+  // GET /api/components - List all components
+  // Query params: ?category=...&projectName=...
+  listComponents: (params?: { category?: string; projectName?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(Object.entries(params).filter(([_, v]) => v)).toString()
+      : ''
+    return fetchAPI(`/components${query}`)
+  },
+
+  // GET /api/components/:type - Get specific component
+  // Query params: ?projectName=...
+  getComponent: (type: string, projectName?: string) => {
+    const query = projectName ? `?projectName=${projectName}` : ''
+    return fetchAPI(`/components/${type}${query}`)
+  },
+
+  // POST /api/components - Create or update component
   saveComponent: (component: ComponentTemplate) =>
     fetchAPI('/components', {
       method: 'POST',
       body: JSON.stringify(component),
     }),
 
-  // List all components, optionally filtered by category or scope
-  getComponents: (category?: string, scope?: 'GLOBAL' | 'PROJECT', projectName?: string) => {
-    let query = ''
-    const params: string[] = []
-    if (category) params.push(`category=${category}`)
-    if (scope) params.push(`scope=${scope}`)
-    if (projectName) params.push(`projectName=${projectName}`)
-    if (params.length > 0) query = '?' + params.join('&')
-    return fetchAPI(`/components${query}`)
-  },
+  // PUT /api/components/:type - Update specific component
+  updateComponent: (type: string, component: Partial<ComponentTemplate>) =>
+    fetchAPI(`/components/${type}`, {
+      method: 'PUT',
+      body: JSON.stringify(component),
+    }),
 
-  // Get component by type and project (for override logic)
-  getComponent: (type: string, projectName?: string) =>
-    fetchAPI(`/components/${type}${projectName ? `?projectName=${projectName}` : ''}`),
+  // DELETE /api/components/:type - Delete component
+  // Body: { projectName: string } (for project-level components)
+  deleteComponent: (type: string, projectName?: string) =>
+    fetchAPI(`/components/${type}`, {
+      method: 'DELETE',
+      body: JSON.stringify(projectName ? { projectName } : {}),
+    }),
 }
 
-// ==================== 2. PROJECT MANAGEMENT ====================
+// ==================== 1. PROJECTS API (/api/v2/core/projects) ====================
 
 export interface Project {
   name: string
+  status?: 'running' | 'stopped' | 'building'
   port?: number
   url?: string
-  status?: 'running' | 'stopped'
+  githubRepo?: {
+    owner: string
+    repo: string
+    branch: string
+  }
+  createdAt?: string
+  updatedAt?: string
 }
 
 export const ProjectAPI = {
-  // Create a new Next.js project from template
-  createProject: (projectName: string, domain?: string) =>
-    fetchAPI('/create-project', {
-      method: 'POST',
-      body: JSON.stringify({ projectName, domain }),
-    }),
-
-  // List all active project instances and their ports
-  getProjects: () =>
+  // GET /api/projects - List all projects
+  listProjects: () =>
     fetchAPI('/projects'),
-}
 
-// ==================== 3. SITE GENERATION & DEPLOYMENT ====================
+  // GET /api/projects/:name - Get specific project
+  getProject: (name: string) =>
+    fetchAPI(`/projects/${name}`),
 
-export interface SiteGenerationResponse {
-  success: boolean
-  port: number
-  url: string
-  message: string
-}
-
-export const SiteAPI = {
-  // Generate project structure and start Next.js server
-  // Use this after updating a site design in DB
-  generateSite: (projectName: string) =>
-    fetchAPI('/sites/generate', {
+  // POST /api/projects - Create new project
+  createProject: (projectName: string) =>
+    fetchAPI('/projects', {
       method: 'POST',
       body: JSON.stringify({ projectName }),
-    }) as Promise<SiteGenerationResponse>,
+    }),
 
-  // Trigger production build and sync to GitHub
-  buildProject: (projectName: string) =>
-    fetchAPI(`/projects/${projectName}/build`, {
+  // PATCH /api/projects/:name - Update project metadata
+  updateProject: (name: string, updates: Partial<Project>) =>
+    fetchAPI(`/projects/${name}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
+
+  // DELETE /api/projects/:name - Delete project
+  deleteProject: (name: string) =>
+    fetchAPI(`/projects/${name}`, {
+      method: 'DELETE',
+    }),
+
+  // POST /api/projects/:name/stop - Stop running project
+  stopProject: (name: string) =>
+    fetchAPI(`/projects/${name}/stop`, {
       method: 'POST',
+    }),
+
+  // POST /api/projects/:name/build - Build for production
+  buildProject: (name: string) =>
+    fetchAPI(`/projects/${name}/build`, {
+      method: 'POST',
+    }),
+
+  // POST /api/projects/generate - Generate site from design
+  generateSite: (projectName: string): Promise<{ success: boolean; port: number; url: string; message: string }> =>
+    fetchAPI('/projects/generate', {
+      method: 'POST',
+      body: JSON.stringify({ projectName }),
     }),
 }
 
-// ==================== 4. SITE DESIGN & CONTENT ====================
+// ==================== 2. DESIGNS API (/api/v2/core/designs) ====================
 
-// Component Instance - the bridge between library and site structure
 export interface ComponentInstance {
-  id?: string
-  type: string // must exist in ComponentLibrary
+  type: string // e.g., 'Navbar', 'Hero', 'News'
   props: Record<string, any>
   order?: number
 }
 
-// Page Schema
 export interface Page {
-  id?: string
-  route: string // e.g., '/', '/about', '/pricing'
+  route: string // e.g., '/', '/about'
   title: string
   description?: string
   components: ComponentInstance[]
 }
 
-// Theme Configuration
 export interface Theme {
   primaryColor?: string
   secondaryColor?: string
@@ -133,36 +218,59 @@ export interface Theme {
   darkMode?: boolean
 }
 
-// Website Design Schema - The root document
 export interface WebsiteDesign {
-  id?: string
   projectName: string
-  domain?: string
   theme: Theme
   pages: Page[]
+  domain?: string
   createdAt?: string
   updatedAt?: string
 }
 
 export const DesignAPI = {
-  // List all project designs stored in database
-  getDesigns: () =>
+  // GET /api/designs - List all designs
+  listDesigns: () =>
     fetchAPI('/designs'),
 
-  // Fetch full JSON design for a specific project
-  getSiteContent: (projectName: string) =>
-    fetchAPI(`/sites/${projectName}/content`),
+  // GET /api/designs/:name - Get specific design
+  getDesign: (name: string) =>
+    fetchAPI(`/designs/${name}`),
 
-  // Note: Design is auto-created when project is created
-  // Use updateDesign to modify existing design
-  updateDesign: (projectName: string, design: Partial<WebsiteDesign>) =>
-    fetchAPI(`/sites/${projectName}/content`, {
-      method: 'PUT',
+  // POST /api/designs - Create or update design (upsert) with compression
+  saveDesign: (design: WebsiteDesign) =>
+    fetchAPICompressed('/designs', {
+      method: 'POST',
       body: JSON.stringify(design),
+    }),
+
+  // PATCH /api/designs/:name - Update specific design
+  updateDesign: (name: string, updates: Partial<WebsiteDesign>) =>
+    fetchAPI(`/designs/${name}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
+
+  // DELETE /api/designs/:name - Delete design
+  deleteDesign: (name: string) =>
+    fetchAPI(`/designs/${name}`, {
+      method: 'DELETE',
+    }),
+
+  // POST /api/designs/:name/pages/:route - Add or update a page
+  savePage: (projectName: string, route: string, page: Omit<Page, 'route'>) =>
+    fetchAPI(`/designs/${projectName}/pages/${encodeURIComponent(route)}`, {
+      method: 'POST',
+      body: JSON.stringify(page),
+    }),
+
+  // DELETE /api/designs/:name/pages/:route - Delete a page
+  deletePage: (projectName: string, route: string) =>
+    fetchAPI(`/designs/${projectName}/pages/${encodeURIComponent(route)}`, {
+      method: 'DELETE',
     }),
 }
 
-// ==================== 5. CONTENT MANAGEMENT (News, Rental, Jobs) ====================
+// ==================== 4. CONTENT MANAGEMENT (/api/v2/core/sites/:projectName/...) ====================
 
 // These are content items that populate the component instances
 
@@ -283,18 +391,74 @@ export const ContentAPI = {
     }),
 }
 
-// ==================== COMPONENT REGISTRATION HELPERS ====================
+// ==================== 5. PROJECT DATA API (/api/v2/core/data) ====================
 
-// Helper to convert WebsiteBuilder components to ComponentLibrary format
+// Arbitrary key-value storage for projects
+
+export const DataAPI = {
+  // GET /api/data/:name - Get all data for project
+  getAllData: (projectName: string) =>
+    fetchAPI(`/data/${projectName}`),
+
+  // GET /api/data/:name/:key - Get specific data key
+  getData: (projectName: string, key: string) =>
+    fetchAPI(`/data/${projectName}/${key}`),
+
+  // POST /api/data/:name - Set or update a data key
+  // Body: { key: string, value: any }
+  setData: (projectName: string, key: string, value: any) =>
+    fetchAPI(`/data/${projectName}`, {
+      method: 'POST',
+      body: JSON.stringify({ key, value }),
+    }),
+
+  // DELETE /api/data/:name/:key - Delete data key
+  deleteData: (projectName: string, key: string) =>
+    fetchAPI(`/data/${projectName}/${key}`, {
+      method: 'DELETE',
+    }),
+}
+
+// Content management using DataAPI for storage (refactored)
+export const ContentDataAPI = {
+  // News Management (stored as 'news' key in project data)
+  getNews: async (projectName: string): Promise<NewsItem[]> => {
+    const data = await DataAPI.getData(projectName, 'news')
+    return data?.value || []
+  },
+
+  saveNews: async (projectName: string, news: NewsItem[]) =>
+    DataAPI.setData(projectName, 'news', news),
+
+  // Rental Ads Management
+  getRentals: async (projectName: string): Promise<RentalAd[]> => {
+    const data = await DataAPI.getData(projectName, 'rentals')
+    return data?.value || []
+  },
+
+  saveRentals: async (projectName: string, rentals: RentalAd[]) =>
+    DataAPI.setData(projectName, 'rentals', rentals),
+
+  // Job Postings Management
+  getJobs: async (projectName: string): Promise<JobPosting[]> => {
+    const data = await DataAPI.getData(projectName, 'jobs')
+    return data?.value || []
+  },
+
+  saveJobs: async (projectName: string, jobs: JobPosting[]) =>
+    DataAPI.setData(projectName, 'jobs', jobs),
+}
+
+// ==================== 6. COMPONENT REGISTRATION HELPERS ====================
+
 export const ComponentRegistration = {
-  // Create a component template from WebsiteBuilder component code
+  // Create a component template
   createTemplate: (
     type: string,
     category: string,
     code: string,
     description: string,
     defaultProps: Record<string, any> = {},
-    scope: 'GLOBAL' | 'PROJECT' = 'GLOBAL',
     projectName?: string
   ): ComponentTemplate => ({
     type,
@@ -302,27 +466,24 @@ export const ComponentRegistration = {
     code,
     description,
     defaultProps,
-    scope,
-    projectName: scope === 'PROJECT' ? projectName : null,
+    projectName,
   }),
 
-  // Register all standard components to the backend
+  // Register all standard components
   registerStandardComponents: async () => {
     const standardComponents: ComponentTemplate[] = [
       {
         type: 'header',
         category: 'Navbar',
-        scope: 'GLOBAL',
-        projectName: null,
-        description: 'Site header with navigation links',
-        code: `export default function Header({ title, navLinks, logoUrl, logoPosition }) {
+        description: 'Site header with navigation',
+        code: `export default function Header({ title, navLinks, logoUrl }) {
   return (
-    <header className="flex justify-between items-center p-4">
-      {logoUrl && <img src={logoUrl} alt="Logo" className="w-12 h-12" />}
-      <h1 className="text-2xl font-bold">{title}</h1>
-      <nav className="space-x-6">
+    <header className="flex justify-between items-center p-4 bg-white shadow-sm">
+      {logoUrl && <img src={logoUrl} alt="Logo" className="h-10" />}
+      <h1 className="text-xl font-bold">{title}</h1>
+      <nav className="space-x-4">
         {Object.entries(navLinks || {}).map(([key, label]) => (
-          <a key={key} href={\`#\${key}\`} className="hover:opacity-80">{label}</a>
+          <a key={key} href={\`#\${key}\`} className="text-gray-600 hover:text-blue-600">{label}</a>
         ))}
       </nav>
     </header>
@@ -334,233 +495,51 @@ export const ComponentRegistration = {
         }
       },
       {
-        type: 'news',
-        category: 'News',
-        scope: 'GLOBAL',
-        projectName: null,
-        description: 'News/Medee component with grid layout',
-        code: `export default function News({ title, items = [] }) {
+        type: 'Hero',
+        category: 'Hero',
+        description: 'Hero section with title and CTA',
+        code: `export default function Hero({ title, subtitle, ctaText }) {
   return (
-    <div className="p-8">
-      <h2 className="text-3xl font-bold mb-6 text-center">{title || 'Мэдээ мэдээлэл'}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items.map((news) => (
-          <div key={news.id} className="rounded-lg border overflow-hidden">
-            {news.imageUrl && <img src={news.imageUrl} alt={news.title} className="w-full h-48 object-cover" />}
-            <div className="p-4">
-              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">{news.category}</span>
-              <h3 className="font-semibold text-lg mt-2">{news.title}</h3>
-              <p className="text-sm mt-2 text-gray-600">{news.excerpt}</p>
-              <p className="text-xs text-gray-500 mt-3">{news.date}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="py-20 px-4 text-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">{title}</h1>
+      <p className="text-xl text-gray-600 mb-8">{subtitle}</p>
+      {ctaText && <button className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">{ctaText}</button>}
     </div>
   )
 }`,
         defaultProps: {
-          title: 'Мэдээ мэдээлэл',
-          items: []
+          title: 'The Future of CMS',
+          subtitle: 'Built for scale and performance.',
+          ctaText: 'Explore Now'
         }
       },
       {
-        type: 'rental',
-        category: 'Rental',
-        scope: 'GLOBAL',
-        projectName: null,
-        description: 'Rental listings component',
-        code: `export default function Rental({ title, items = [] }) {
+        type: 'Navbar',
+        category: 'Navbar',
+        description: 'Navigation bar component',
+        code: `export default function Navbar({ togglePosition, links = [] }) {
   return (
-    <div className="p-8">
-      <h2 className="text-3xl font-bold mb-6 text-center">{title || 'Борлуулалтын зарууд'}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items.map((item) => (
-          <div key={item.id} className="rounded-lg border overflow-hidden">
-            {item.imageUrl ? (
-              <img src={item.imageUrl} alt={item.title} className="w-full h-48 object-cover" />
-            ) : (
-              <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                <span className="text-gray-400">Зураггүй</span>
-              </div>
-            )}
-            <div className="p-4">
-              <h3 className="font-semibold text-lg">{item.title}</h3>
-              <p className="text-sm text-gray-600">{item.location}</p>
-              <div className="flex items-center gap-4 mt-2 text-sm">
-                {item.bedrooms > 0 && <span>{item.bedrooms} өрөө</span>}
-                <span>{item.area} м²</span>
-              </div>
-              <p className="text-lg font-bold text-blue-600 mt-3">
-                {item.price?.toLocaleString()}₮/{item.priceType === 'monthly' ? 'сар' : 'өдөр'}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}`,
-        defaultProps: {
-          title: 'Борлуулалтын зарууд',
-          items: []
-        }
-      },
-      {
-        type: 'jobs',
-        category: 'Jobs',
-        scope: 'GLOBAL',
-        projectName: null,
-        description: 'Job board component',
-        code: `export default function Jobs({ title, items = [] }) {
-  return (
-    <div className="p-8">
-      <h2 className="text-3xl font-bold mb-6 text-center">{title || 'Ажлын зарууд'}</h2>
-      <div className="space-y-4">
-        {items.map((job) => (
-          <div key={job.id} className="p-4 rounded-lg border">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-semibold text-lg">{job.title}</h3>
-                <p className="text-sm">{job.company}</p>
-              </div>
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">{job.category}</span>
-            </div>
-            <div className="flex items-center gap-4 mt-3 text-sm">
-              <span>{job.location}</span>
-              <span>{job.salary?.min?.toLocaleString()} - {job.salary?.max?.toLocaleString()}₮</span>
-              <span>{job.type === 'full-time' ? 'Бүтэн цагийн' : job.type === 'part-time' ? 'Хагас цагийн' : 'Гэрээт'}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}`,
-        defaultProps: {
-          title: 'Ажлын зарууд',
-          items: []
-        }
-      },
-      {
-        type: 'contact-form',
-        category: 'Contact',
-        scope: 'GLOBAL',
-        projectName: null,
-        description: 'Contact form with map placeholder',
-        code: `export default function ContactForm({ title, contactInfo = {} }) {
-  return (
-    <div className="p-8">
-      <h2 className="text-3xl font-bold mb-6">{title || 'Холбоо барих'}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div>
-          <h3 className="text-xl font-semibold mb-4">Байршил</h3>
-          <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
-            <span className="text-gray-500">Газрын зураг энд харагдана</span>
-          </div>
-          <div className="mt-4 space-y-2">
-            <p>📍 {contactInfo.address || 'Улаанбаатар, Монгол'}</p>
-            <p>📞 {contactInfo.phone || '+976 9911 xxxx'}</p>
-            <p>✉️ {contactInfo.email || 'contact@example.com'}</p>
-          </div>
-        </div>
-        <div>
-          <h3 className="text-xl font-semibold mb-4">Бидэнд мессеж илгээх</h3>
-          <form className="space-y-4">
-            <input type="text" placeholder="Таны нэр" className="w-full p-3 rounded border" />
-            <input type="email" placeholder="Имэйл хаяг" className="w-full p-3 rounded border" />
-            <input type="text" placeholder="Гарчиг" className="w-full p-3 rounded border" />
-            <textarea placeholder="Таны мессеж" rows={4} className="w-full p-3 rounded border" />
-            <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold">
-              Илгээх
-            </button>
-          </form>
+    <nav className="bg-white shadow-sm px-4 py-3">
+      <div className="flex items-center justify-between">
+        <div className="font-bold text-xl">Logo</div>
+        <div className={\`flex gap-4 \${togglePosition === 'right' ? 'ml-auto' : ''}\`}>
+          {links.map(link => (
+            <a key={link.href} href={link.href} className="text-gray-600 hover:text-blue-600">{link.label}</a>
+          ))}
         </div>
       </div>
-    </div>
+    </nav>
   )
 }`,
         defaultProps: {
-          title: 'Холбоо барих',
-          contactInfo: {
-            address: 'Улаанбаатар, Монгол',
-            phone: '+976 9911 xxxx',
-            email: 'contact@example.com'
-          }
-        }
-      },
-      {
-        type: 'chatbot',
-        category: 'Chatbot',
-        scope: 'GLOBAL',
-        projectName: null,
-        description: 'Live chat floating widget',
-        code: `export default function Chatbot({ title }) {
-  const [chatOpen, setChatOpen] = React.useState(false)
-  const [messages, setMessages] = React.useState([{ text: 'Сайн байна уу! Бид танд хэрхэн туслах вэ?', isUser: false }])
-  const [inputMessage, setInputMessage] = React.useState('')
-  
-  const sendMessage = () => {
-    if (inputMessage.trim()) {
-      setMessages(prev => [...prev, { text: inputMessage, isUser: true }])
-      setInputMessage('')
-      setTimeout(() => {
-        setMessages(prev => [...prev, { text: 'Баярлалаа! Бид таны мессежийг хүлээн авлаа.', isUser: false }])
-      }, 1000)
-    }
-  }
-  
-  return (
-    <div className="p-8">
-      <h2 className="text-3xl font-bold mb-4 text-center">{title || 'Live Chat'}</h2>
-      <p className="text-center mb-6">Бидэнтэй шуурхай холбогдохын тулд чат нээнэ үү</p>
-      
-      <button
-        onClick={() => setChatOpen(!chatOpen)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 z-50 flex items-center justify-center"
-      >
-        {chatOpen ? '✕' : '💬'}
-      </button>
-      
-      {chatOpen && (
-        <div className="fixed bottom-24 right-6 w-80 h-96 bg-white rounded-lg shadow-2xl z-50 flex flex-col border">
-          <div className="p-4 bg-blue-600 text-white rounded-t-lg">
-            <h3 className="font-semibold">Live Chat</h3>
-          </div>
-          <div className="flex-1 p-4 overflow-y-auto space-y-3">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={\`flex \${msg.isUser ? 'justify-end' : 'justify-start'}\`}>
-                <span className={\`px-3 py-2 rounded-lg max-w-[80%] text-sm \${msg.isUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}\`}>
-                  {msg.text}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="p-3 border-t flex gap-2">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Мессеж бичнэ үү..."
-              className="flex-1 px-3 py-2 border rounded-lg text-sm"
-            />
-            <button onClick={sendMessage} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Илгээх</button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}`,
-        defaultProps: {
-          title: 'Live Chat'
+          togglePosition: 'right',
+          links: [{ label: 'Home', href: '/' }, { label: 'About', href: '/about' }]
         }
       }
     ]
 
-    // Register each component
     const results = await Promise.all(
-      standardComponents.map(comp => 
+      standardComponents.map(comp =>
         ComponentAPI.saveComponent(comp).catch(err => {
           console.error(`Failed to register ${comp.type}:`, err)
           return null
@@ -575,11 +554,12 @@ export const ComponentRegistration = {
 // ==================== COMBINED EXPORTS ====================
 
 export const CMSAPI = {
-  Component: ComponentAPI,
   Project: ProjectAPI,
-  Site: SiteAPI,
   Design: DesignAPI,
+  Component: ComponentAPI,
+  Data: DataAPI,
   Content: ContentAPI,
+  ContentData: ContentDataAPI,
   Registration: ComponentRegistration,
 }
 

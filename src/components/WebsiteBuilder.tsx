@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
   DndContext,
@@ -20,7 +20,15 @@ import {
 } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, X, Edit3, Check, FileText, Trash2, GripVertical, Palette, Image, Type, LayoutGrid, CreditCard, Monitor, Square, Columns, Grid3X3, Video, GripHorizontal, Maximize2, Briefcase, MessageSquare } from 'lucide-react'
+import { 
+  Plus, Trash2, GripVertical, Type, LayoutGrid, CreditCard, Monitor, Square, 
+  ArrowUp, Grid3X3, Briefcase, MessageSquare, X, Check, Edit3, FileText, 
+  Maximize2, ChevronDown, ChevronRight, Terminal, Search, MoreHorizontal,
+  Image as ImageIcon, GripHorizontal, Video as VideoIcon
+} from 'lucide-react'
+import { CMSAPI } from '@/lib/cms-api'
+import { projectApi } from '@/lib/api-service'
+import DraggableSection, { SectionContainer, SectionType } from './DraggableSection'
 
 // Color Palette - Tailwind CSS inspired
 const colorPalette = {
@@ -258,6 +266,7 @@ interface ComponentContent {
   subtitle?: string
   description?: string
   buttonText?: string
+  buttonLink?: string
   services?: string[]
   contactInfo?: {
     email?: string
@@ -296,6 +305,15 @@ interface ComponentContent {
     span?: number
     imageUrl?: string
     videoUrl?: string
+  }>
+  // Draggable sections for visual editing
+  sections?: Array<{
+    id: string
+    type: 'text' | 'image' | 'button' | 'container'
+    position: { x: number; y: number }
+    size: { width: number; height: number }
+    content?: string
+    style?: Record<string, any>
   }>
   // Logo
   logoUrl?: string
@@ -337,7 +355,7 @@ interface ComponentContent {
 
 interface Component {
   id: string
-  type: 'home' | 'about' | 'service' | 'contact' | 'header' | 'footer' | 'card' | 'text' | 'gif' | 'grid' | 'image' | 'news' | 'rental' | 'jobs' | 'contact-form' | 'chatbot'
+  type: 'home' | 'about' | 'service' | 'contact' | 'header' | 'footer' | 'card' | 'text' | 'gif' | 'grid' | 'image' | 'news' | 'rental' | 'jobs' | 'contactform' | 'chatbot'
   content: ComponentContent
   styles: ComponentStyles
 }
@@ -360,6 +378,8 @@ interface DraggableComponentProps {
   component: Component
   onEdit: (id: string) => void
   onDelete: (id: string) => void
+  onUpdateContent?: (id: string, key: string, value: any) => void
+  onUpdateStyle?: (id: string, key: string, value: any) => void
   isSelected: boolean
   onSelect: (id: string) => void
   isDarkMode: boolean
@@ -404,14 +424,16 @@ const availableComponents = [
   { type: 'news', label: 'Мэдээ мэдээлэл', icon: Type },
   { type: 'rental', label: 'Борлуулалтын зар', icon: CreditCard },
   { type: 'jobs', label: 'Ажлын зар', icon: Briefcase },
-  { type: 'contact-form', label: 'Холбоо барих форм', icon: CreditCard },
+  { type: 'contactform', label: 'Холбоо барих форм', icon: CreditCard },
   { type: 'chatbot', label: 'Чатбот', icon: MessageSquare },
 ]
 
 function DraggableComponent({ 
   component, 
   onEdit, 
-  onDelete, 
+  onDelete,
+  onUpdateContent,
+  onUpdateStyle,
   isSelected, 
   onSelect,
   isDarkMode
@@ -425,18 +447,17 @@ function DraggableComponent({
     isDragging,
   } = useSortable({ id: component.id })
 
-  // Debug: Log when component changes
-  useEffect(() => {
-    console.log('DraggableComponent received new component:', component.id, component.type, 'images:', component.content.images)
-  }, [component])
-
   // Resize state
   const [isResizing, setIsResizing] = useState(false)
   const [currentHeight, setCurrentHeight] = useState(component.styles.height || 'auto')
-
-  // Update currentHeight when component.styles.height changes
+  // Use ref to track latest height for resize end callback
+  const heightRef = useRef(currentHeight)
+  
+  // Update both state and ref when height changes
   useEffect(() => {
-    setCurrentHeight(component.styles.height || 'auto')
+    const newHeight = component.styles.height || 'auto'
+    setCurrentHeight(newHeight)
+    heightRef.current = newHeight
   }, [component.styles.height])
 
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -445,19 +466,22 @@ function DraggableComponent({
     setIsResizing(true)
     
     const startY = e.clientY
-    const startHeight = parseInt(currentHeight as string) || 200
+    const startHeight = parseInt(heightRef.current as string) || 200
+    let finalHeight = startHeight
     
     const handleResizeMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.clientY - startY
-      const newHeight = Math.max(100, startHeight + deltaY)
-      setCurrentHeight(`${newHeight}px`)
+      finalHeight = Math.max(100, startHeight + deltaY)
+      setCurrentHeight(`${finalHeight}px`)
     }
     
     const handleResizeEnd = () => {
       setIsResizing(false)
-      // Update the component height
-      const finalHeight = currentHeight
-      // This will be handled by the parent component
+      // Use the tracked final height, not stale state
+      heightRef.current = `${finalHeight}px`
+      if (onUpdateStyle) {
+        onUpdateStyle(component.id, 'height', `${finalHeight}px`)
+      }
       document.removeEventListener('mousemove', handleResizeMove)
       document.removeEventListener('mouseup', handleResizeEnd)
     }
@@ -465,6 +489,9 @@ function DraggableComponent({
     document.addEventListener('mousemove', handleResizeMove)
     document.addEventListener('mouseup', handleResizeEnd)
   }
+
+  // Inline editing state
+  const [inlineEditing, setInlineEditing] = useState<{field: string, value: string} | null>(null)
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -500,341 +527,160 @@ function DraggableComponent({
     color: getColorValue(component.styles.headingColor),
   }
 
+  // Inline editable text component
+  const InlineEditableText = ({ 
+    field, 
+    value, 
+    defaultValue, 
+    className, 
+    style,
+    multiline = false 
+  }: { 
+    field: string
+    value?: string
+    defaultValue: string
+    className?: string
+    style?: React.CSSProperties
+    multiline?: boolean
+  }) => {
+    const [isEditing, setIsEditing] = useState(false)
+    const [editValue, setEditValue] = useState(value || defaultValue)
+    const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+
+    useEffect(() => {
+      if (isEditing && inputRef.current) {
+        inputRef.current.focus()
+        inputRef.current.select()
+      }
+    }, [isEditing])
+
+    const handleSave = () => {
+      if (onUpdateContent && editValue !== value) {
+        onUpdateContent(component.id, field, editValue)
+      }
+      setIsEditing(false)
+    }
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !multiline) {
+        handleSave()
+      } else if (e.key === 'Escape') {
+        setEditValue(value || defaultValue)
+        setIsEditing(false)
+      }
+    }
+
+    if (isEditing) {
+      if (multiline) {
+        return (
+          <textarea
+            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            className={`${className} bg-white/90 border-2 border-blue-500 rounded px-2 py-1 outline-none`}
+            style={{ ...style, minWidth: '200px', minHeight: '60px' }}
+            rows={3}
+          />
+        )
+      }
+      return (
+        <input
+          ref={inputRef as React.RefObject<HTMLInputElement>}
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          className={`${className} bg-white/90 border-2 border-blue-500 rounded px-2 py-1 outline-none`}
+          style={style}
+        />
+      )
+    }
+
+    return (
+      <span
+        onClick={() => isSelected && setIsEditing(true)}
+        className={`${className} ${isSelected ? 'cursor-text hover:bg-blue-50/30 rounded px-1' : ''}`}
+        style={style}
+        title={isSelected ? 'Засахын тулд дарна уу' : undefined}
+      >
+        {value || defaultValue}
+      </span>
+    )
+  }
+
   const renderComponent = () => {
-    console.log('renderComponent called for type:', component.type, 'with images:', component.content.images)
     switch (component.type) {
       case 'home':
-        const [homeImageStates, setHomeImageStates] = useState<Record<string, {
-          position: { x: number; y: number }
-          size: { width: number; height: number }
-          isDragging: boolean
-          isResizing: boolean
-        }>>(() => {
-          const initial: Record<string, any> = {}
-          component.content.images?.forEach(img => {
-            initial[img.id] = {
-              position: img.position || { x: 20 + (component.content.images?.indexOf(img) || 0) * 220, y: 20 },
-              size: img.size || { width: 200, height: 150 },
-              isDragging: false,
-              isResizing: false
-            }
-          })
-          return initial
-        })
-
-        const handleHomeImageDelete = (imageId: string) => {
-          const updatedImages = component.content.images?.filter(img => img.id !== imageId) || []
-          setHomeImageStates(prev => {
-            const newState = { ...prev }
-            delete newState[imageId]
-            return newState
-          })
-        }
-
-        const handleHomeImageDragStart = (e: React.MouseEvent, imageId: string) => {
-          e.preventDefault()
-          e.stopPropagation()
-          
-          setHomeImageStates(prev => ({
-            ...prev,
-            [imageId]: { ...prev[imageId], isDragging: true }
-          }))
-          
-          const startX = e.clientX
-          const startY = e.clientY
-          const startImgX = homeImageStates[imageId]?.position.x || 20
-          const startImgY = homeImageStates[imageId]?.position.y || 20
-          
-          const handleDragMove = (moveEvent: MouseEvent) => {
-            const deltaX = moveEvent.clientX - startX
-            const deltaY = moveEvent.clientY - startY
-            
-            setHomeImageStates(prev => ({
-              ...prev,
-              [imageId]: {
-                ...prev[imageId],
-                position: {
-                  x: Math.max(0, Math.min(startImgX + deltaX, 800)),
-                  y: Math.max(0, Math.min(startImgY + deltaY, 500))
-                }
-              }
-            }))
-          }
-          
-          const handleDragEnd = () => {
-            setHomeImageStates(prev => ({
-              ...prev,
-              [imageId]: { ...prev[imageId], isDragging: false }
-            }))
-            document.removeEventListener('mousemove', handleDragMove)
-            document.removeEventListener('mouseup', handleDragEnd)
-          }
-          
-          document.addEventListener('mousemove', handleDragMove)
-          document.addEventListener('mouseup', handleDragEnd)
-        }
-
-        const handleHomeImageResizeStart = (e: React.MouseEvent, imageId: string) => {
-          e.preventDefault()
-          e.stopPropagation()
-          
-          setHomeImageStates(prev => ({
-            ...prev,
-            [imageId]: { ...prev[imageId], isResizing: true }
-          }))
-          
-          const startX = e.clientX
-          const startY = e.clientY
-          const startWidth = homeImageStates[imageId]?.size.width || 200
-          const startHeight = homeImageStates[imageId]?.size.height || 150
-          
-          const handleResizeMove = (moveEvent: MouseEvent) => {
-            const deltaX = moveEvent.clientX - startX
-            const deltaY = moveEvent.clientY - startY
-            
-            setHomeImageStates(prev => ({
-              ...prev,
-              [imageId]: {
-                ...prev[imageId],
-                size: {
-                  width: Math.max(50, startWidth + deltaX),
-                  height: Math.max(50, startHeight + deltaY)
-                }
-              }
-            }))
-          }
-          
-          const handleResizeEnd = () => {
-            setHomeImageStates(prev => ({
-              ...prev,
-              [imageId]: { ...prev[imageId], isResizing: false }
-            }))
-            document.removeEventListener('mousemove', handleResizeMove)
-            document.removeEventListener('mouseup', handleResizeEnd)
-          }
-          
-          document.addEventListener('mousemove', handleResizeMove)
-          document.addEventListener('mouseup', handleResizeEnd)
-        }
-        
-        return (
-          <div style={componentStyle} className="relative min-h-[300px]">
-            <h1 className="text-4xl font-bold mb-4" style={headingStyle}>
-              {component.content.title || 'Тавтай морил'}</h1>
-            <p className="text-xl mb-6">{component.content.subtitle || 'Таны аялал эндээс эхэлнэ'}</p>
-            
-            {/* Draggable and Resizable Images */}
-            {component.content.images?.map((img: ComponentImage) => {
-              const state = homeImageStates[img.id] || {}
-              const position = state.position || { x: 20, y: 20 }
-              const size = state.size || { width: 200, height: 150 }
-              const isDragging = state.isDragging || false
-              const isResizing = state.isResizing || false
-              
-              return (
-                <div
-                  key={img.id}
-                  className={`absolute group ${isDragging ? 'z-50' : 'z-10'}`}
-                  style={{
-                    left: position.x,
-                    top: position.y,
-                    width: size.width,
-                    height: size.height,
-                  }}
-                >
-                  {/* Image */}
-                  <img
-                    src={img.url}
-                    alt={img.alt}
-                    className={`w-full h-full object-cover rounded-lg shadow-lg ${
-                      isDragging ? 'ring-2 ring-blue-500' : ''
-                    } ${isResizing ? 'ring-2 ring-green-500' : ''}`}
-                    onMouseDown={(e) => handleHomeImageDragStart(e, img.id)}
-                  />
-                  
-                  {/* Drag Handle Indicator */}
-                  <div 
-                    className="absolute top-2 left-2 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center cursor-move opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                    onMouseDown={(e) => handleHomeImageDragStart(e, img.id)}
-                  >
-                    <GripVertical className="w-4 h-4" />
-                  </div>
-                  
-                  {/* Resize Handle */}
-                  <div
-                    className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                    onMouseDown={(e) => handleHomeImageResizeStart(e, img.id)}
-                  >
-                    <Maximize2 className="w-4 h-4" />
-                  </div>
-                  
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => handleHomeImageDelete(img.id)}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600 z-50"
-                    title="Устгах"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                  
-                  {/* Position/Size Info */}
-                  {(isDragging || isResizing) && (
-                    <div className="absolute -top-8 left-0 bg-black/70 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                      X: {Math.round(position.x)}, Y: {Math.round(position.y)} | 
-                      W: {Math.round(size.width)}, H: {Math.round(size.height)}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-            
-            <button className="px-6 py-3 rounded-lg font-semibold transition-colors" style={buttonStyle}>
-              {component.content.buttonText || 'Эхлэх'}
-            </button>
-          </div>
-        )
       case 'about':
-        return (
-          <div style={componentStyle}>
-            <h2 className="text-3xl font-bold mb-4" style={headingStyle}>
-              {component.content.title || 'Бидний тухай'}</h2>
-            {component.content.images && component.content.images.length > 0 && (
-              <div className="flex flex-wrap gap-4 mb-6">
-                {component.content.images.map((img: ComponentImage) => (
-                  <img key={img.id} src={img.url} alt={img.alt} className="w-32 h-32 object-cover rounded-lg" />
-                ))}
-              </div>
-            )}
-            <p className="text-lg leading-relaxed">{component.content.description || 'Бид өндөр чанартай үйлчилгээ үзүүлэхээр зорьж ажилладаг.'}</p>
-          </div>
-        )
       case 'service':
-        return (
-          <div style={componentStyle}>
-            <h2 className="text-3xl font-bold mb-6 text-center" style={headingStyle}>
-              {component.content.title || 'Манай үйлчилгээ'}</h2>
-            {component.content.images && component.content.images.length > 0 && (
-              <div className="mb-6">
-                <img src={component.content.images[0].url} alt={component.content.images[0].alt} className="w-full h-64 object-cover rounded-lg" />
-              </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {(component.content.services || ['Вэб хөгжүүлэлт', 'Дизайн', 'Зөвлөгөө']).map((service: string, index: number) => (
-                <div key={index} className="p-6 rounded-lg border-2" style={{ borderColor: getColorValue(component.styles.borderColor) }}>
-                  <h3 className="text-xl font-semibold mb-2" style={headingStyle}>{service}</h3>
-                  <p>Мэргэжлийн {service.toLowerCase()} үйлчилгээ.</p>
-                  <button className="mt-4 px-4 py-2 rounded text-sm font-medium" style={buttonStyle}>
-                    Дэлгэрэнгүй
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )
       case 'contact':
-        return (
-          <div style={componentStyle}>
-            <h2 className="text-3xl font-bold mb-6" style={headingStyle}>
-              {component.content.title || 'Холбогдох'}</h2>
-            {component.content.images && component.content.images.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {component.content.images.map((img: ComponentImage) => (
-                  <img key={img.id} src={img.url} alt={img.alt} className="w-full h-32 object-cover rounded-lg" />
-                ))}
-              </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-xl font-semibold mb-4" style={headingStyle}>Холбоо барих</h3>
-                <div className="space-y-3">
-                  <p>Имэйл: {component.content.contactInfo?.email || 'contact@example.com'}</p>
-                  <p>Утас: {component.content.contactInfo?.phone || '+1 (555) 123-4567'}</p>
-                  <p>Хаяг: {component.content.contactInfo?.address || '123 Бизнес гудамж'}</p>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold mb-4" style={headingStyle}>Мессеж илгээх</h3>
-                <div className="space-y-4">
-                  <input type="text" placeholder="Таны нэр" className="w-full p-3 rounded border" style={{ borderColor: getColorValue(component.styles.borderColor) }} />
-                  <input type="email" placeholder="Имэйл хаяг" className="w-full p-3 rounded border" style={{ borderColor: getColorValue(component.styles.borderColor) }} />
-                  <textarea placeholder="Таны мессеж" rows={4} className="w-full p-3 rounded border" style={{ borderColor: getColorValue(component.styles.borderColor) }} />
-                  <button className="w-full py-3 rounded-lg font-semibold" style={buttonStyle}>
-                    {component.content.buttonText || 'Илгээх'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
       case 'header':
-        const [logoPosition, setLogoPosition] = useState(component.content.logoPosition || { x: 20, y: 20 })
-        const [isDraggingLogo, setIsDraggingLogo] = useState(false)
+      case 'footer':
+      case 'card':
+      case 'text':
+        // Multiple sections component - supports text and image boxes
+        // Use ref to track if we've initialized from props
+        const initializedRef = useRef(false)
+        const [sections, setSections] = useState<SectionType[]>(() => {
+          // Lazy initializer - only runs once
+          return component.content.sections || [
+            { id: '1', type: 'text' as const, position: { x: 20, y: 20 }, size: { width: 250, height: 60 } },
+            { id: '2', type: 'image' as const, position: { x: 20, y: 100 }, size: { width: 150, height: 150 } }
+          ]
+        })
         
-        const handleLogoDragStart = (e: React.MouseEvent) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setIsDraggingLogo(true)
-          
-          const startX = e.clientX
-          const startY = e.clientY
-          const startLogoX = logoPosition.x
-          const startLogoY = logoPosition.y
-          
-          const handleDragMove = (moveEvent: MouseEvent) => {
-            const deltaX = moveEvent.clientX - startX
-            const deltaY = moveEvent.clientY - startY
-            
-            setLogoPosition({
-              x: Math.max(0, Math.min(startLogoX + deltaX, 300)),
-              y: Math.max(0, Math.min(startLogoY + deltaY, 100))
-            })
+        // Sync with parent when sections change (but not on initial render)
+        const prevSectionsRef = useRef<SectionType[]>(sections)
+        useEffect(() => {
+          // Only update parent if sections actually changed (not just reference)
+          const hasChanged = JSON.stringify(prevSectionsRef.current) !== JSON.stringify(sections)
+          if (initializedRef.current && onUpdateContent && hasChanged) {
+            prevSectionsRef.current = sections
+            onUpdateContent(component.id, 'sections', sections)
+          } else {
+            initializedRef.current = true
           }
-          
-          const handleDragEnd = () => {
-            setIsDraggingLogo(false)
-            document.removeEventListener('mousemove', handleDragMove)
-            document.removeEventListener('mouseup', handleDragEnd)
-          }
-          
-          document.addEventListener('mousemove', handleDragMove)
-          document.addEventListener('mouseup', handleDragEnd)
+        }, [sections, component.id, onUpdateContent])
+
+        const handleSectionUpdate = (id: string, updates: Partial<SectionType>) => {
+          setSections(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
         }
-        
+
+        const handleSectionDelete = (id: string) => {
+          setSections(prev => prev.filter(s => s.id !== id))
+        }
+
+        const handleAddSection = (sectionType: 'text' | 'image' | 'button') => {
+          setSections(prev => {
+            const newSection: SectionType = {
+              id: Date.now().toString(),
+              type: sectionType,
+              position: { x: 20 + prev.length * 20, y: 20 + prev.length * 20 },
+              size: { width: sectionType === 'button' ? 120 : 200, height: sectionType === 'button' ? 45 : sectionType === 'text' ? 60 : 150 }
+            }
+            return [...prev, newSection]
+          })
+        }
+
         return (
-          <div style={componentStyle} className="relative">
-            {/* Draggable Logo */}
-            {component.content.logoUrl && (
-              <div
-                className="absolute cursor-move z-10"
-                style={{
-                  left: logoPosition.x,
-                  top: logoPosition.y,
-                }}
-                onMouseDown={handleLogoDragStart}
-              >
-                <img 
-                  src={component.content.logoUrl} 
-                  alt="Logo" 
-                  className={`w-12 h-12 object-contain rounded ${isDraggingLogo ? 'ring-2 ring-blue-500' : ''}`}
-                />
-                {isDraggingLogo && (
-                  <span className="absolute -bottom-5 left-0 text-xs text-blue-500 whitespace-nowrap">
-                    X: {Math.round(logoPosition.x)}, Y: {Math.round(logoPosition.y)}
-                  </span>
-                )}
-              </div>
-            )}
-            
-            <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold" style={headingStyle}>{component.content.title || 'Таны брэнд'}</h1>
-              <nav className="space-x-6">
-                <a href="#home" className="hover:opacity-80" style={linkStyle}>{component.content.navLinks?.home || 'Нүүр'}</a>
-                <a href="#about" className="hover:opacity-80" style={linkStyle}>{component.content.navLinks?.about || 'Бидний тухай'}</a>
-                <a href="#services" className="hover:opacity-80" style={linkStyle}>{component.content.navLinks?.services || 'Үйлчилгээ'}</a>
-                <a href="#contact" className="hover:opacity-80" style={linkStyle}>{component.content.navLinks?.contact || 'Холбогдох'}</a>
-              </nav>
+          <SectionContainer style={componentStyle}>
+            {sections.map((section) => (
+              <DraggableSection
+                key={section.id}
+                section={section}
+                onUpdate={handleSectionUpdate}
+                onDelete={handleSectionDelete}
+              />
+            ))}
+            <div className="absolute bottom-4 left-4 flex gap-2 flex-wrap">
+              <button onClick={() => handleAddSection('text')} className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 flex items-center gap-1"><Type className="w-3 h-3" />Текст</button>
+              <button onClick={() => handleAddSection('image')} className="px-3 py-1.5 bg-emerald-500 text-white text-xs rounded-lg hover:bg-emerald-600 flex items-center gap-1"><ImageIcon className="w-3 h-3" />Зураг</button>
+              <button onClick={() => handleAddSection('button')} className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded-lg hover:bg-purple-600 flex items-center gap-1"><Square className="w-3 h-3" />Товч</button>
             </div>
-          </div>
+          </SectionContainer>
         )
       case 'footer':
         return (
@@ -852,19 +698,30 @@ function DraggableComponent({
       case 'card':
         const cardBg = getColorValue(component.styles.cardBackgroundColor || 'white')
         const cardBorder = getColorValue(component.styles.cardBorderColor || 'slate-200')
+        // Responsive grid - 1 col mobile, 2 col tablet, custom for desktop
+        const cardColumns = component.styles.gridColumns || 3
+        const responsiveGridStyle = {
+          display: 'grid',
+          gap: `${component.styles.gridGap || 16}px`,
+          gridTemplateColumns: `repeat(${cardColumns}, 1fr)`,
+        } as React.CSSProperties
+        
         return (
           <div style={componentStyle}>
-            <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${component.styles.gridColumns || 3}, 1fr)`, gap: `${component.styles.gridGap || 16}px` }}>
+            <div 
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+              style={{ gap: `${component.styles.gridGap || 16}px` }}
+            >
               {(component.content.cards || [
                 { id: '1', title: 'Карт 1', description: 'Энэ бол жишээ карт' },
                 { id: '2', title: 'Карт 2', description: 'Тайлбар энд байна' },
                 { id: '3', title: 'Карт 3', description: 'Нэмэлт мэдээлэл' },
               ]).map((card) => (
                 <div key={card.id} className="p-4 rounded-lg border-2" style={{ backgroundColor: cardBg, borderColor: cardBorder, borderRadius: `${component.styles.cardBorderRadius || 8}px` }}>
-                  {card.imageUrl && <img src={card.imageUrl} alt={card.title} className="w-full h-32 object-cover rounded mb-3" />}
-                  <h3 className="font-bold mb-2" style={headingStyle}>{card.title}</h3>
-                  <p className="text-sm">{card.description}</p>
-                  {card.buttonText && <button className="mt-3 px-3 py-1 text-sm rounded" style={buttonStyle}>{card.buttonText}</button>}
+                  {card.imageUrl && <img src={card.imageUrl} alt={card.title} className="w-full h-32 sm:h-40 object-cover rounded mb-3" />}
+                  <h3 className="font-bold mb-2 text-base sm:text-lg" style={headingStyle}>{card.title}</h3>
+                  <p className="text-sm text-gray-600">{card.description}</p>
+                  {card.buttonText && <button className="mt-3 px-4 py-2 text-sm font-medium rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all" style={buttonStyle}>{card.buttonText}</button>}
                 </div>
               ))}
             </div>
@@ -1126,7 +983,7 @@ function DraggableComponent({
               </div>
             ) : (
               <div className="text-center p-8 border-2 border-dashed rounded-lg">
-                <Video className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <VideoIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p className="mb-2">GIF, видео эсвэл YouTube URL нэмнэ үү</p>
                 <p className="text-xs opacity-60">Жишээ: https://youtube.com/watch?v=...</p>
               </div>
@@ -1363,7 +1220,7 @@ function DraggableComponent({
                               : 'border-gray-300 hover:bg-gray-50'
                           }`}
                         >
-                          <Image className="w-3 h-3" />
+                          <ImageIcon className="w-3 h-3" />
                           <span>{item.imageUrl ? 'Зураг өөрчлөх' : 'Зураг нэмэх'}</span>
                         </button>
                         {item.imageUrl && (
@@ -1385,7 +1242,7 @@ function DraggableComponent({
                       
                       {/* Video URL Input */}
                       <div className="flex items-center space-x-1">
-                        <Video className="w-3 h-3 text-gray-400" />
+                        <VideoIcon className="w-3 h-3 text-gray-400" />
                         <input
                           type="text"
                           value={item.videoUrl || ''}
@@ -1491,7 +1348,7 @@ function DraggableComponent({
                         <img src={gridItemImagePreview} alt="Preview" className="max-h-32 mx-auto rounded" />
                       ) : (
                         <>
-                          <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                          <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
                           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                             Файл сонгох эсвэл энд чирнэ үү
                           </p>
@@ -1565,7 +1422,7 @@ function DraggableComponent({
               </div>
             ) : (
               <div className="text-center p-8 border-2 border-dashed rounded-lg">
-                <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>Зураг нэмнэ үү</p>
               </div>
             )}
@@ -1661,7 +1518,7 @@ function DraggableComponent({
             </div>
           </div>
         )
-      case 'contact-form':
+      case 'contactform':
         return (
           <div style={componentStyle}>
             <h2 className="text-3xl font-bold mb-6" style={headingStyle}>
@@ -1711,44 +1568,62 @@ function DraggableComponent({
         }
         
         return (
-          <div style={componentStyle} className="relative">
-            <h2 className="text-3xl font-bold mb-4 text-center" style={headingStyle}>
-              {component.content.title || 'Live Chat'}</h2>
-            <p className="text-center mb-6">Бидэнтэй шуурхай холбогдохын тулд чат нээнэ үү</p>
-            
-            {/* Floating Chat Button */}
+          <div style={componentStyle} className="relative h-20">
+            {/* Modern Floating Chat Button - Small Circle */}
             <button
               onClick={() => setChatOpen(!chatOpen)}
-              className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 z-50 flex items-center justify-center"
+              className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all z-50 flex items-center justify-center border-2 border-white"
             >
               {chatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
             </button>
             
-            {/* Chat Window */}
+            {/* Modern Chat Window */}
             {chatOpen && (
-              <div className="fixed bottom-24 right-6 w-80 h-96 bg-white rounded-lg shadow-2xl z-50 flex flex-col border">
-                <div className="p-4 bg-blue-600 text-white rounded-t-lg">
-                  <h3 className="font-semibold">Live Chat</h3>
+              <div className="fixed bottom-24 right-6 w-80 bg-white rounded-2xl shadow-2xl z-50 flex flex-col border border-gray-200 overflow-hidden">
+                {/* Chat Header */}
+                <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Live Chat</h3>
+                      <p className="text-xs text-blue-100">Бидэнтэй холбогдох</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 p-4 overflow-y-auto space-y-3">
+                
+                {/* Messages */}
+                <div className="flex-1 p-4 overflow-y-auto max-h-64 space-y-3 bg-gray-50">
                   {messages.map((msg, idx) => (
                     <div key={idx} className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
-                      <span className={`px-3 py-2 rounded-lg max-w-[80%] text-sm ${msg.isUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
+                      <span className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${
+                        msg.isUser 
+                          ? 'bg-blue-600 text-white rounded-br-md' 
+                          : 'bg-white text-gray-800 shadow-sm rounded-bl-md'
+                      }`}>
                         {msg.text}
                       </span>
                     </div>
                   ))}
                 </div>
-                <div className="p-3 border-t flex gap-2">
+                
+                {/* Input */}
+                <div className="p-3 bg-white border-t flex gap-2">
                   <input
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                     placeholder="Мессеж бичнэ үү..."
-                    className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                    className="flex-1 px-4 py-2 bg-gray-100 border-0 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <button onClick={sendMessage} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Илгээх</button>
+                  <button 
+                    onClick={sendMessage} 
+                    className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors"
+                  >
+                    <ArrowUp className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             )}
@@ -1771,9 +1646,6 @@ function DraggableComponent({
           <button {...attributes} {...listeners} className="p-2 bg-white shadow-md hover:bg-gray-100 rounded-full text-xs font-bold">
             <GripVertical className="w-4 h-4" />
           </button>
-          <button onClick={() => onEdit(component.id)} className="p-2 bg-white shadow-md hover:bg-gray-100 rounded-full text-xs font-bold">
-            <Edit3 className="w-4 h-4" />
-          </button>
           <button onClick={() => onDelete(component.id)} className="p-2 bg-white shadow-md hover:bg-red-100 rounded-full text-red-600 text-xs font-bold">
             <Trash2 className="w-4 h-4" />
           </button>
@@ -1795,21 +1667,12 @@ interface WebsiteBuilderProps {
   websiteName: string
   isDarkMode: boolean
   template?: any
+  apiUrl: string
+  token: string
 }
 
-export default function WebsiteBuilder({ websiteName, isDarkMode, template }: WebsiteBuilderProps) {
-  const [pages, setPages] = useState<Page[]>([
-    {
-      id: 'home',
-      name: 'Home',
-      path: '/',
-      components: [
-        { id: '1', type: 'header', content: { title: websiteName, navLinks: { ...defaultNavLinks } }, styles: { ...defaultStyles, backgroundColor: 'slate-800', textColor: 'white', linkColor: 'white' } },
-        { id: '2', type: 'home', content: { title: 'Манай вэбсайтад тавтай морил', subtitle: 'Гайхалтай дижитал туршлага бүтээе', buttonText: 'Эхлэх', images: [] }, styles: { ...defaultStyles, backgroundColor: 'blue-500', textColor: 'white', headingColor: 'white', padding: 64 } },
-        { id: '3', type: 'footer', content: { title: websiteName, copyright: `© 2026${websiteName}. Бүх эрх хуулиар хамгаалагдсан.`, footerLinks: { ...defaultFooterLinks } }, styles: { ...defaultStyles, backgroundColor: 'slate-800', textColor: 'white', linkColor: 'slate-400' } },
-      ]
-    }
-  ])
+export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiUrl, token }: WebsiteBuilderProps) {
+  const [pages, setPages] = useState<Page[]>([])  
   
   const [activePageId, setActivePageId] = useState<string>('home')
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -1830,7 +1693,16 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
   const [newBgImageUrl, setNewBgImageUrl] = useState('')
   const [bgImagePreview, setBgImagePreview] = useState<string | null>(null)
 
-  const activePage = pages.find(p => p.id === activePageId) || pages[0]
+  const activePage = pages.find(p => p.id === activePageId) || pages[0] || {
+    id: '',
+    name: '',
+    path: '',
+    components: [],
+    backgroundImage: undefined,
+    backgroundSize: 'cover',
+    backgroundRepeat: 'no-repeat',
+    backgroundAttachment: 'scroll'
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -1876,18 +1748,118 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
     setActiveId(null)
   }
 
+  const [showGlobalWarning, setShowGlobalWarning] = useState(false)
+  const [pendingGlobalComponent, setPendingGlobalComponent] = useState<string | null>(null)
+
   const addComponent = (type: string) => {
+    // Create component with multiple placeholders (text + image) by default
+    const createPlaceholderComponent = (compType: string): Component => {
+      const id = Date.now().toString()
+      
+      // All components get both text and image sections by default
+      return {
+        id,
+        type: compType as Component['type'],
+        content: { 
+          images: [],
+          sections: [
+            { id: '1', type: 'text' as const, position: { x: 20, y: 20 }, size: { width: 250, height: 60 } },
+            { id: '2', type: 'image' as const, position: { x: 20, y: 100 }, size: { width: 150, height: 150 } }
+          ]
+        },
+        styles: { ...defaultStyles, height: '300px' }
+      }
+    }
+    
+    // If no pages exist, create a default page
+    if (pages.length === 0) {
+      const newComponent = createPlaceholderComponent(type)
+      const defaultPage: Page = {
+        id: Date.now().toString(),
+        name: 'Home',
+        path: '/',
+        components: [newComponent]
+      }
+      setPages([defaultPage])
+      setActivePageId(defaultPage.id)
+      return
+    }
+    
+    // Check if it's a global component
+    const globalComponents = ['header', 'footer', 'chatbot']
+    if (globalComponents.includes(type)) {
+      const alreadyExists = pages.some(page => 
+        page.components.some(comp => comp.type === type)
+      )
+      if (alreadyExists) {
+        alert(`${type} бүрдэл аль хэдийн байна. Төсөлд зөвхөн нэг ${type} байж болно.`)
+        return
+      }
+      
+      setPendingGlobalComponent(type)
+      setShowGlobalWarning(true)
+      return
+    }
+    
+    // Add component to current page
+    const newComponent = createPlaceholderComponent(type)
+    setPages(prev => prev.map(page => {
+      if (page.id !== activePageId) return page
+      return { ...page, components: [...page.components, newComponent] }
+    }))
+    
+    // Select the new component
+    setSelectedComponentId(newComponent.id)
+  }
+
+  const confirmAddGlobalComponent = () => {
+    if (!pendingGlobalComponent) return
+    
+    const type = pendingGlobalComponent
     const newComponent: Component = {
       id: Date.now().toString(),
       type: type as Component['type'],
       content: { images: [] },
       styles: { ...defaultStyles }
     }
-    setPages(prev => prev.map(page => 
-      page.id === activePageId 
-        ? { ...page, components: [...page.components, newComponent] }
-        : page
-    ))
+    
+    // If no pages exist, create a default page first
+    if (pages.length === 0) {
+      const defaultPage: Page = {
+        id: Date.now().toString(),
+        name: 'Home',
+        path: '/',
+        components: [newComponent]
+      }
+      setPages([defaultPage])
+      setActivePageId(defaultPage.id)
+    } else {
+      // Global components go to all pages
+      setPages(prev => prev.map(page => ({
+        ...page,
+        components: [...page.components, newComponent]
+      })))
+    }
+    
+    setShowGlobalWarning(false)
+    setPendingGlobalComponent(null)
+  }
+
+  const addComponentToPage = (type: string, pageId: string) => {
+    const newComponent: Component = {
+      id: Date.now().toString(),
+      type: type as Component['type'],
+      content: { images: [] },
+      styles: { ...defaultStyles }
+    }
+    
+    // Add component at the bottom (end) of the page
+    setPages(prev => prev.map(page => {
+      if (page.id !== pageId) return page
+      
+      // Add component at the end of the array
+      return { ...page, components: [...page.components, newComponent] }
+    }))
   }
 
   const deleteComponent = (id: string) => {
@@ -1937,6 +1909,38 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
     setOriginalComponent(null)
     setNewImageUrl('')
     setNewImageAlt('')
+  }
+
+  // Handle inline content updates from DraggableComponent
+  const handleUpdateContent = (componentId: string, key: string, value: any) => {
+    setPages(prev => prev.map(page => 
+      page.id === activePageId 
+        ? { 
+            ...page, 
+            components: page.components.map(comp => 
+              comp.id === componentId 
+                ? { ...comp, content: { ...comp.content, [key]: value } }
+                : comp
+            ) 
+          }
+        : page
+    ))
+  }
+
+  // Handle style updates from DraggableComponent
+  const handleUpdateStyle = (componentId: string, key: string, value: any) => {
+    setPages(prev => prev.map(page => 
+      page.id === activePageId 
+        ? { 
+            ...page, 
+            components: page.components.map(comp => 
+              comp.id === componentId 
+                ? { ...comp, styles: { ...comp.styles, [key]: value } }
+                : comp
+            ) 
+          }
+        : page
+    ))
   }
 
   const updateComponentStyle = (key: keyof ComponentStyles, value: any) => {
@@ -2005,13 +2009,10 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
   }
 
   const addImage = () => {
-    console.log('addImage called', { newImageUrl, imagePreview, editingComponent })
     if (editingComponent && (newImageUrl.trim() || imagePreview)) {
       const imageUrl = imagePreview || newImageUrl
       const newImage: ComponentImage = { id: Date.now().toString(), url: imageUrl, alt: newImageAlt || 'Image' }
-      console.log('Creating new image:', newImage)
       const updated = { ...editingComponent, content: { ...editingComponent.content, images: [...(editingComponent.content.images || []), newImage] } }
-      console.log('Updated component:', updated)
       setEditingComponent(updated)
       setNewImageUrl('')
       setNewImageAlt('')
@@ -2025,7 +2026,6 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
             ? { ...page, components: page.components.map(comp => comp.id === updated.id ? updated : comp) }
             : page
         )
-        console.log('Updated pages:', newPages)
         return newPages
       })
     }
@@ -2173,16 +2173,52 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
 
   const addPage = () => {
     if (newPageName.trim()) {
+      // Create empty page with just placeholder sections - no default content or colors
+      const newComponents: Component[] = []
+      
+      // Add header - empty with just image placeholder
+      newComponents.push({
+        id: Date.now().toString() + '1',
+        type: 'header',
+        content: { 
+          images: [],
+          sections: [{ id: '1', type: 'image' as const, position: { x: 20, y: 20 }, size: { width: 50, height: 50 } }]
+        },
+        styles: { ...defaultStyles, height: '80px' }
+      })
+      
+      // Add home - empty with just text and image placeholders
+      newComponents.push({
+        id: Date.now().toString() + '2',
+        type: 'home',
+        content: { 
+          images: [],
+          sections: [
+            { id: '1', type: 'text' as const, position: { x: 20, y: 20 }, size: { width: 250, height: 60 } },
+            { id: '2', type: 'image' as const, position: { x: 20, y: 100 }, size: { width: 150, height: 150 } }
+          ]
+        },
+        styles: { ...defaultStyles, height: '300px' }
+      })
+      
+      // Add footer - empty
+      newComponents.push({
+        id: Date.now().toString() + '3',
+        type: 'footer',
+        content: { 
+          images: [],
+          sections: [{ id: '1', type: 'text' as const, position: { x: 20, y: 20 }, size: { width: 200, height: 30 } }]
+        },
+        styles: { ...defaultStyles, height: '80px' }
+      })
+      
       const newPage: Page = {
         id: Date.now().toString(),
         name: newPageName,
         path: `/${newPageName.toLowerCase().replace(/\s+/g, '-')}`,
-        components: [
-          { id: Date.now().toString() + '1', type: 'header', content: { title: websiteName, navLinks: { ...defaultNavLinks } }, styles: { ...defaultStyles, backgroundColor: 'slate-800', textColor: 'white', linkColor: 'white' } },
-          { id: Date.now().toString() + '2', type: 'home', content: { title: `${newPageName} хуудсанд тавтай морил`, subtitle: 'Хуудасын тайлбар энд байна', buttonText: 'Эхлэх', images: [] }, styles: { ...defaultStyles, backgroundColor: 'blue-500', textColor: 'white', headingColor: 'white', padding: 64 } },
-          { id: Date.now().toString() + '3', type: 'footer', content: { title: websiteName, copyright: `© 2026${websiteName}. Бүх эрх хуулиар хамгаалагдсан.`, footerLinks: { ...defaultFooterLinks } }, styles: { ...defaultStyles, backgroundColor: 'slate-800', textColor: 'white', linkColor: 'slate-400' } },
-        ]
+        components: newComponents
       }
+      
       setPages([...pages, newPage])
       setActivePageId(newPage.id)
       setNewPageName('')
@@ -2353,52 +2389,546 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
   // Site generation and deployment
   const [isPublishing, setIsPublishing] = useState(false)
   const [publishStatus, setPublishStatus] = useState<{url?: string, port?: number, message?: string} | null>(null)
-  const [projectName, setProjectName] = useState('my-website')
+  const [projectName, setProjectName] = useState('Нийтлэх')
+  
+  // Store project name in localStorage for API calls
+  useEffect(() => {
+    if (typeof window !== 'undefined' && projectName) {
+      localStorage.setItem('currentProject', projectName)
+      localStorage.setItem('projectName', projectName)
+    }
+  }, [projectName])
+  
+  // Live PM2 Log Streaming
+  const [logs, setLogs] = useState<string[]>([])
+  const [logStream, setLogStream] = useState<EventSource | null>(null)
+  const [showLogs, setShowLogs] = useState(false)
+  const logsEndRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll logs to bottom
+  useEffect(() => {
+    if (showLogs && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [logs, showLogs])
+
+  // Cleanup log stream on unmount
+  useEffect(() => {
+    return () => {
+      if (logStream) {
+        logStream.close()
+      }
+    }
+  }, [logStream])
+
+  // Start/Stop log streaming
+  const startLogStream = (targetProject: string) => {
+    // Clear previous logs
+    setLogs([])
+    setShowLogs(true)
+
+    // Close existing stream if any
+    if (logStream) {
+      logStream.close()
+    }
+
+    // Create new SSE connection
+    const stream = new EventSource(`http://202.179.6.77:4000/api/v2/core/projects/${targetProject}/logs/live`)
+    
+    stream.onmessage = (event) => {
+      setLogs(prev => [...prev, event.data])
+    }
+    
+    stream.onerror = () => {
+      // Don't close on error, let it reconnect automatically
+    }
+    
+    setLogStream(stream)
+  }
+
+  const stopLogStream = () => {
+    if (logStream) {
+      logStream.close()
+      setLogStream(null)
+    }
+    setShowLogs(false)
+  }
+
+  // Save components to component library
+  const saveComponents = async (cleanProjectName: string) => {
+    // Store project name in localStorage for API header
+    localStorage.setItem('currentProject', cleanProjectName)
+    localStorage.setItem('projectName', cleanProjectName)
+    
+    // Get unique component types used in all pages
+    const usedTypes = new Set<string>()
+    pages.forEach(page => {
+      page.components.forEach(comp => {
+        usedTypes.add(comp.type)
+      })
+    })
+    
+    // Map component types to their codes
+    const componentCodes: Record<string, string> = {
+      header: `export default function Header({ title, logoUrl, logoPosition, pages, currentRoute }) {
+  return (
+    <header className="flex justify-between items-center p-4 bg-white shadow-sm relative">
+      {logoUrl && (
+        <img 
+          src={logoUrl} 
+          alt="Logo" 
+          className="h-10 object-contain"
+          style={{ 
+            position: logoPosition ? 'absolute' : 'static',
+            left: logoPosition?.x || 20,
+            top: logoPosition?.y || 20
+          }} 
+        />
+      )}
+      <h1 className="text-xl font-bold">{title}</h1>
+      <nav className="space-x-4">
+        {pages && pages.map((page) => (
+          <a 
+            key={page.route} 
+            href={page.route} 
+            className={\`text-gray-600 hover:text-blue-600 \${currentRoute === page.route ? 'font-bold text-blue-600' : ''}\`}
+          >
+            {page.title}
+          </a>
+        ))}
+      </nav>
+    </header>
+  )
+}`,
+      home: `export default function Home({ title, subtitle, buttonText, images, backgroundVideo }) {
+  return (
+    <div className="relative min-h-[300px] p-8" style={backgroundVideo ? { position: 'relative', overflow: 'hidden' } : {}}>
+      {backgroundVideo && (
+        <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 bg-black/40 z-10" />
+          {backgroundVideo.includes('youtube') || backgroundVideo.includes('youtu.be') ? (
+            <iframe
+              src={\`https://www.youtube.com/embed/\${backgroundVideo.match(/(?:youtu\\.be\\/|v\\/|u\\/\\w\\/|embed\\/|watch\\?v=|\\&v=)([^#\\&\\?]*)/)?.[1]}?autoplay=1&mute=1&loop=1&controls=0&playlist=\${backgroundVideo.match(/(?:youtu\\.be\\/|v\\/|u\\/\\w\\/|embed\\/|watch\\?v=|\\&v=)([^#\\&\\?]*)/)?.[1]}&start=0&enablejsapi=0&rel=0&modestbranding=1&playsinline=1\`}
+              className="absolute top-1/2 left-1/2 w-[100vw] h-[100vh] -translate-x-1/2 -translate-y-1/2 scale-125"
+              style={{ pointerEvents: 'none', minWidth: '100%', minHeight: '100%' }}
+              allow="autoplay; encrypted-media"
+              frameBorder="0"
+            />
+          ) : (
+            <video src={backgroundVideo} autoPlay muted loop playsInline className="absolute top-1/2 left-1/2 w-full h-full -translate-x-1/2 -translate-y-1/2 object-cover" style={{ minWidth: '100%', minHeight: '100%' }} />
+          )}
+        </div>
+      )}
+      <div className="relative z-10">
+        <h1 className="text-4xl font-bold mb-4">{title}</h1>
+        <p className="text-xl mb-6">{subtitle}</p>
+        {images?.map((img, i) => (
+          <img key={i} src={img.url} alt={img.alt} className="absolute rounded-lg shadow-lg" 
+            style={{ left: img.position?.x || 20, top: img.position?.y || 20, width: img.size?.width || 200, height: img.size?.height || 150 }} />
+        ))}
+        {buttonText && <button className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold shadow-lg hover:bg-blue-700 hover:shadow-xl hover:-translate-y-0.5 transition-all">{buttonText}</button>}
+      </div>
+    </div>
+  )
+}`,
+      about: `export default function About({ title, description, images }) {
+  return (
+    <div className="p-8">
+      <h2 className="text-3xl font-bold mb-4">{title}</h2>
+      <div className="flex flex-wrap gap-4 mb-6">
+        {images?.map((img, i) => <img key={i} src={img.url} alt={img.alt} className="w-32 h-32 object-cover rounded-lg" />)}
+      </div>
+      <p className="text-lg leading-relaxed">{description}</p>
+    </div>
+  )
+}`,
+      service: `export default function Service({ title, services, images }) {
+  return (
+    <div className="p-8">
+      <h2 className="text-3xl font-bold mb-6 text-center">{title}</h2>
+      {images?.[0] && <img src={images[0].url} alt="Service" className="w-full h-64 object-cover rounded-lg mb-6" />}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {(services || []).map((service, i) => (
+          <div key={i} className="p-6 rounded-lg border-2 border-gray-200">
+            <h3 className="text-xl font-semibold mb-2">{service}</h3>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}`,
+      contact: `export default function Contact({ title, contactInfo, buttonText, images }) {
+  return (
+    <div className="p-8">
+      <h2 className="text-3xl font-bold mb-6">{title}</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6">
+        {images?.map((img, i) => <img key={i} src={img.url} alt={img.alt} className="w-full h-24 sm:h-32 object-cover rounded-lg" />)}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <h3 className="text-xl font-semibold mb-4">Холбогдох мэдээлэл</h3>
+          <div className="space-y-2">
+            {contactInfo?.email && <p>Имэйл: {contactInfo.email}</p>}
+            {contactInfo?.phone && <p>Утас: {contactInfo.phone}</p>}
+            {contactInfo?.address && <p>Хаяг: {contactInfo.address}</p>}
+          </div>
+        </div>
+        <div>
+          <h3 className="text-xl font-semibold mb-4">Мессеж илгээх</h3>
+          <div className="space-y-4">
+            <input type="text" placeholder="Таны нэр" className="w-full p-3 rounded border" />
+            <input type="email" placeholder="Имэйл" className="w-full p-3 rounded border" />
+            <textarea placeholder="Мессеж" rows={4} className="w-full p-3 rounded border" />
+            {buttonText && <button className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all">{buttonText}</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}`,
+      footer: `export default function Footer({ copyright, footerLinks }) {
+  return (
+    <div className="p-8 text-center">
+      <p className="mb-2">{copyright}</p>
+      <div className="space-x-4">
+        {footerLinks?.privacy && <a href="#" className="hover:opacity-80">{footerLinks.privacy}</a>}
+        {footerLinks?.terms && <a href="#" className="hover:opacity-80">{footerLinks.terms}</a>}
+        {footerLinks?.contact && <a href="#" className="hover:opacity-80">{footerLinks.contact}</a>}
+      </div>
+    </div>
+  )
+}`,
+      card: `export default function Card({ cards }) {
+  return (
+    <div className="p-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {(cards || []).map((card) => (
+          <div key={card.id} className="p-4 rounded-lg border-2 bg-white">
+            {card.imageUrl && <img src={card.imageUrl} alt={card.title} className="w-full h-40 object-cover rounded mb-3" />}
+            <h3 className="font-bold text-lg mb-2">{card.title}</h3>
+            <p className="text-sm text-gray-600">{card.description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}`,
+      text: `export default function Text({ text }) {
+  return <div className="p-8 prose max-w-none" dangerouslySetInnerHTML={{ __html: text || '' }} />
+}`,
+      gif: `export default function Gif({ videoUrl }) {
+  if (!videoUrl) return null
+  if (videoUrl.includes('youtube') || videoUrl.includes('youtu.be')) {
+    const id = videoUrl.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([^&\s]+)/)?.[1]
+    return <iframe src={\`https://www.youtube.com/embed/\${id}\`} className="w-full aspect-video" allowFullScreen />
+  }
+  return <video src={videoUrl} autoPlay muted loop playsInline className="w-full rounded-lg" />
+}`,
+      grid: `export default function Grid({ gridItems, gridColumns, gridGap }) {
+  return (
+    <div className="p-8" style={{ display: 'grid', gridTemplateColumns: \`repeat(\${gridColumns || 4}, 1fr)\`, gap: \`\${gridGap || 16}px\` }}>
+      {(gridItems || []).map((item) => (
+        <div key={item.id} className="p-4 bg-gray-100 rounded" style={{ gridColumn: item.span ? \`span \${item.span}\` : 'span 1' }}>
+          {item.imageUrl && <img src={item.imageUrl} alt="" className="w-full h-32 object-cover rounded mb-2" />}
+          {item.videoUrl && <video src={item.videoUrl} autoPlay muted loop className="w-full h-32 object-cover rounded mb-2" />}
+          <div dangerouslySetInnerHTML={{ __html: item.content }} />
+        </div>
+      ))}
+    </div>
+  )
+}`,
+      contactform: `export default function ContactForm({ title, fields, buttonText, submitUrl }) {
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    alert('Form submitted!')
+  }
+  
+  return (
+    <div className="p-8 max-w-2xl mx-auto">
+      <h2 className="text-3xl font-bold mb-6">{title}</h2>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        {(fields || []).map((field) => (
+          <div key={field.name}>
+            <label className="block text-sm font-medium mb-1">{field.label}</label>
+            {field.type === 'textarea' ? (
+              <textarea name={field.name} required={field.required} rows={4} className="w-full p-3 rounded border" placeholder={field.placeholder} />
+            ) : (
+              <input type={field.type} name={field.name} required={field.required} className="w-full p-3 rounded border" placeholder={field.placeholder} />
+            )}
+          </div>
+        ))}
+        {buttonText && <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer">{buttonText}</button>}
+      </form>
+    </div>
+  )
+}`,
+      pagination: `export default function Pagination({ pages, currentRoute }) {
+  if (!pages || pages.length <= 1) return null
+  
+  const currentIndex = pages.findIndex(p => p.route === currentRoute)
+  
+  return (
+    <nav className="flex justify-center items-center py-6 px-4 bg-white border-t">
+      <div className="flex items-center gap-2">
+        {/* Previous Button */}
+        <a
+          href={currentIndex > 0 ? pages[currentIndex - 1].route : '#'}
+          className={\`px-4 py-2 rounded-lg font-medium transition-all \${
+            currentIndex === 0 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
+          }\`}
+        >
+          ← Өмнөх
+        </a>
+        
+        {/* Page Numbers */}
+        <div className="flex items-center gap-1 mx-2">
+          {pages.map((page, idx) => {
+            const isCurrent = page.route === currentRoute
+            return (
+              <a
+                key={page.route}
+                href={page.route}
+                className={\`min-w-[40px] h-10 px-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center \${
+                  isCurrent 
+                    ? 'bg-blue-600 text-white shadow-md' 
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                }\`}
+              >
+                {idx + 1}
+              </a>
+            )
+          })}
+        </div>
+        
+        {/* Next Button */}
+        <a
+          href={currentIndex < pages.length - 1 ? pages[currentIndex + 1].route : '#'}
+          className={\`px-4 py-2 rounded-lg font-medium transition-all \${
+            currentIndex === pages.length - 1
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
+          }\`}
+        >
+          Дараах →
+        </a>
+      </div>
+    </nav>
+  )
+}`,
+      chatbot: `export default function Chatbot() {
+  const [chatOpen, setChatOpen] = useState(false)
+  const [messages, setMessages] = useState([
+    { text: 'Сайн байна уу! Бид танд хэрхэн туслах вэ?', isUser: false }
+  ])
+  const [inputMessage, setInputMessage] = useState('')
+  
+  const sendMessage = () => {
+    if (inputMessage.trim()) {
+      setMessages(prev => [...prev, { text: inputMessage, isUser: true }])
+      setInputMessage('')
+      setTimeout(() => {
+        setMessages(prev => [...prev, { text: 'Баярлалаа! Бид таны мессежийг хүлээн авлаа.', isUser: false }])
+      }, 1000)
+    }
+  }
+  
+  return (
+    <>
+      {/* Floating Chat Button */}
+      <button
+        onClick={() => setChatOpen(!chatOpen)}
+        className="fixed bottom-6 left-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all z-50 flex items-center justify-center border-2 border-white"
+      >
+        {chatOpen ? '✕' : '💬'}
+      </button>
+      
+      {/* Chat Window */}
+      {chatOpen && (
+        <div className="fixed bottom-24 left-6 w-80 bg-white rounded-2xl shadow-2xl z-50 flex flex-col border border-gray-200 overflow-hidden">
+          {/* Header */}
+          <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">💬</div>
+              <div>
+                <h3 className="font-semibold">Live Chat</h3>
+                <p className="text-xs text-blue-100">Бидэнтэй холбогдох</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Messages */}
+          <div className="flex-1 p-4 overflow-y-auto max-h-64 space-y-3 bg-gray-50">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={'flex ' + (msg.isUser ? 'justify-end' : 'justify-start')}>
+                <span className={'px-4 py-2 rounded-2xl max-w-[80%] text-sm ' + (
+                  msg.isUser 
+                    ? 'bg-blue-600 text-white rounded-br-md' 
+                    : 'bg-white text-gray-800 shadow-sm rounded-bl-md'
+                )}>
+                  {msg.text}
+                </span>
+              </div>
+            ))}
+          </div>
+          
+          {/* Input */}
+          <div className="p-3 bg-white border-t flex gap-2">
+            <input
+              type="text"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder="Мессеж бичнэ үү..."
+              className="flex-1 px-4 py-2 bg-gray-100 border-0 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button 
+              onClick={sendMessage} 
+              className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors"
+            >
+              ↑
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}`
+    }
+    
+    const componentCategories: Record<string, string> = {
+      header: 'Navbar',
+      home: 'Hero',
+      about: 'Content',
+      service: 'Services',
+      contact: 'Contact',
+      footer: 'Footer',
+      card: 'Cards',
+      text: 'Content',
+      gif: 'Media',
+      grid: 'Layout',
+      contactform: 'Forms',
+      pagination: 'Navigation',
+      chatbot: 'Widgets'
+    }
+    
+    // Save each unique component type
+    const savePromises = Array.from(usedTypes).map(async (type) => {
+      const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1)
+      const code = componentCodes[type] || componentCodes.home
+      
+      const componentTemplate = {
+        type: capitalizedType,
+        category: componentCategories[type] || 'General',
+        code: code,
+        description: `${capitalizedType} component for ${cleanProjectName}`,
+        defaultProps: {},
+        projectName: cleanProjectName
+      }
+      
+      try {
+        await CMSAPI.Component.saveComponent(componentTemplate)
+      } catch {
+        // Don't throw, continue with other components
+      }
+    })
+    
+    await Promise.all(savePromises)
+  }
 
   const handlePublish = async () => {
+    if (!confirm('Энэ вэбсайтыг нийтэлж, серверт байршуулах уу?')) return
+    
     setIsPublishing(true)
+    
+    // Use project name as-is (allow Unicode characters like Mongolian)
+    const cleanProjectName = projectName.trim()
+    localStorage.setItem('currentProject', cleanProjectName)
+    localStorage.setItem('projectName', cleanProjectName)
+    
+    // Start log streaming
+    startLogStream(cleanProjectName)
+    
     try {
-      // Step 1: Save design to backend using correct endpoint
+      // Step 0: Create project first
+      try {
+        await projectApi.create(cleanProjectName)
+      } catch {
+        // Project might already exist, continue
+      }
+      
+      // Step 1: Save components to component library
+      await saveComponents(cleanProjectName)
+      
+      // Step 2: Save design using CMSAPI
       const design = {
-        projectName,
+        projectName: cleanProjectName,
+        domain: `${cleanProjectName}.localhost`,
         theme: {
-          primaryColor: '#3b82f6',
-          secondaryColor: '#1f2937',
+          primaryColor: '#2563eb',
+          secondaryColor: '#0f172a',
           fontFamily: 'Inter',
-          darkMode: isDarkMode
+          darkMode: isDarkMode,
+          customTokens: {
+            heroBackground: 'linear-gradient(135deg,#0f172a,#1e3a8a)',
+            buttonRadius: '14px',
+            cardShadow: '0 20px 45px rgba(2,6,23,0.18)'
+          }
         },
         pages: pages.map(page => ({
           route: page.path,
           title: page.name,
-          description: '',
-          components: page.components.map((comp, idx) => ({
-            type: comp.type.charAt(0).toUpperCase() + comp.type.slice(1), // Capitalize first letter
-            props: comp.content,
-            order: idx
-          }))
+          description: page.name === 'Home' ? 'Landing and conversion' : 
+                       page.name === 'About' ? 'Company story' :
+                       page.name === 'Services' ? 'Service catalog' :
+                       page.name === 'Blog' ? 'Posts and updates' :
+                       page.name === 'Contact' ? 'Contact and lead form' : '',
+          components: (() => {
+            const comps: Array<{ type: string; props: Record<string, any>; order: number }> = page.components.map((comp, idx) => {
+              const props: Record<string, any> = { ...comp.content }
+              
+              // Add page navigation to header components
+              if (comp.type === 'header') {
+                props.pages = pages.map(p => ({ route: p.path, title: p.name }))
+                props.currentRoute = page.path
+                delete props.navLinks
+              }
+              
+              // Add background video to home components
+              if (comp.type === 'home' && page.backgroundVideo) {
+                props.backgroundVideo = page.backgroundVideo
+              }
+              
+              return {
+                type: comp.type.charAt(0).toUpperCase() + comp.type.slice(1),
+                props,
+                order: idx
+              }
+            })
+            
+            // Auto-add pagination at bottom if multiple pages
+            if (pages.length > 1) {
+              comps.push({
+                type: 'Pagination',
+                props: {
+                  pages: pages.map(p => ({ route: p.path, title: p.name })),
+                  currentRoute: page.path
+                },
+                order: comps.length
+              })
+            }
+            
+            return comps
+          })()
         }))
       }
 
-      const saveResponse = await fetch('http://202.179.6.77:4000/api/designs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(design),
-      })
+      await CMSAPI.Design.saveDesign(design)
 
-      if (!saveResponse.ok) {
-        const errorText = await saveResponse.text()
-        throw new Error(`Failed to save design: ${saveResponse.status} ${errorText}`)
-      }
+      // Step 2: Generate site using CMSAPI
+      const data = await CMSAPI.Project.generateSite(cleanProjectName)
 
-      // Step 2: Generate and deploy site
-      const response = await fetch('http://202.179.6.77:4000/api/sites/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectName }),
-      })
-
-      const data = await response.json()
-      
       if (data.success) {
         setPublishStatus({
           url: data.url,
@@ -2407,151 +2937,245 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
         })
         alert(`Сайт амжилттай нийтлэгдлээ!\nURL: ${data.url}`)
       } else {
-        alert('Сайт нийтлэхэд алдаа гарлаа: ' + (data.error || 'Unknown error'))
+        alert('Сайт нийтлэхэд алдаа гарлаа')
       }
     } catch (error) {
       console.error('Publish error:', error)
       alert('Сайт нийтлэхэд алдаа гарлаа: ' + (error as Error).message)
     } finally {
       setIsPublishing(false)
+      // Keep logs visible for a bit, then auto-close after 30 seconds
+      setTimeout(() => {
+        if (!isPublishing) {
+          stopLogStream()
+        }
+      }, 30000)
     }
   }
 
-  // Also add a simple save handler
+  // Save handler using CMSAPI
   const handleSave = async () => {
     try {
-      // Sanitize project name - remove special characters
-      const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()
+      // Use project name as-is (allow Unicode characters like Mongolian)
+      const cleanProjectName = projectName.trim()
       
+      // Store in localStorage for API calls
+      localStorage.setItem('currentProject', cleanProjectName)
+      localStorage.setItem('projectName', cleanProjectName)
+      
+      // Step 1: Save components to component library
+      await saveComponents(cleanProjectName)
+
       const design = {
         projectName: cleanProjectName,
+        domain: `${cleanProjectName}.localhost`,
         theme: {
-          primaryColor: '#3b82f6',
-          secondaryColor: '#1f2937',
+          primaryColor: '#2563eb',
+          secondaryColor: '#0f172a',
           fontFamily: 'Inter',
-          darkMode: isDarkMode
+          darkMode: isDarkMode,
+          customTokens: {
+            heroBackground: 'linear-gradient(135deg,#0f172a,#1e3a8a)',
+            buttonRadius: '14px',
+            cardShadow: '0 20px 45px rgba(2,6,23,0.18)'
+          }
         },
         pages: pages.map(page => ({
           route: page.path,
           title: page.name,
-          description: '',
-          components: page.components.map((comp, idx) => ({
-            type: comp.type.charAt(0).toUpperCase() + comp.type.slice(1),
-            props: comp.content,
-            order: idx
-          }))
+          description: page.name === 'Home' ? 'Landing and conversion' : 
+                       page.name === 'About' ? 'Company story' :
+                       page.name === 'Services' ? 'Service catalog' :
+                       page.name === 'Blog' ? 'Posts and updates' :
+                       page.name === 'Contact' ? 'Contact and lead form' : '',
+          components: (() => {
+            const comps: Array<{ type: string; props: Record<string, any>; order: number }> = page.components.map((comp, idx) => {
+              const props: Record<string, any> = { ...comp.content }
+              
+              // Add page navigation to header components
+              if (comp.type === 'header') {
+                props.pages = pages.map(p => ({ route: p.path, title: p.name }))
+                props.currentRoute = page.path
+                delete props.navLinks
+              }
+              
+              // Add background video to home components
+              if (comp.type === 'home' && page.backgroundVideo) {
+                props.backgroundVideo = page.backgroundVideo
+              }
+              
+              return {
+                type: comp.type.charAt(0).toUpperCase() + comp.type.slice(1),
+                props,
+                order: idx
+              }
+            })  
+            
+            // Auto-add pagination at bottom if multiple pages
+            if (pages.length > 1) {
+              comps.push({
+                type: 'Pagination',
+                props: {
+                  pages: pages.map(p => ({ route: p.path, title: p.name })),
+                  currentRoute: page.path
+                },
+                order: comps.length
+              })
+            }
+            
+            return comps
+          })()
         }))
       }
 
-      // Try multiple endpoint variations
-      const endpoints = [
-        'http://202.179.6.77:4000/api/designs',
-        'http://202.179.6.77:4000/api/designs/',
-        `http://202.179.6.77:4000/api/designs/${cleanProjectName}`,
-        'http://202.179.6.77:4000/api/sites/design',
-      ]
-
-      let lastError = null
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Trying endpoint: ${endpoint}`)
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(design),
-          })
-
-          if (response.ok) {
-            alert('Дизайн хадгалагдлаа!')
-            return
-          } else {
-            lastError = `${endpoint}: ${response.status}`
-            console.log(`Failed: ${lastError}`)
-          }
-        } catch (err) {
-          lastError = `${endpoint}: ${(err as Error).message}`
-          console.log(`Error: ${lastError}`)
-        }
-      }
-
-      throw new Error(`All endpoints failed. Last error: ${lastError}`)
+      await CMSAPI.Design.saveDesign(design)
+      alert('Дизайн хадгалагдлаа!')
     } catch (error) {
       console.error('Save error:', error)
-      alert('Хадгалахад алдаа гарлаа: ' + (error as Error).message + '\n\nТаны backend-д POST /api/designs endpoint байгаа эсэхийг шалгана уу.')
+      alert('Хадгалахад алдаа гарлаа: ' + (error as Error).message)
     }
   }
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-4 sm:p-6 lg:p-8 min-h-screen">
+      {/* Header - Stack on mobile, row on desktop */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Вэбсайт угсрах</h2>
-          <p className="mt-2 text-gray-600 dark:text-gray-300">Хуудас бүтээхийн тулд бүрдлүүдийг чирнэ үү</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Вэбсайт угсрах</h2>
+          <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300">Хуудас бүтээхийн тулд бүрдлүүдийг чирнэ үү</p>
         </div>
-        <div className="flex items-center gap-4">
+        {/* Action Buttons - Wrap on mobile */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full lg:w-auto">
           {/* Project Name Input */}
-          <div className="flex items-center gap-2">
-            <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Проект:</label>
+          <div className="flex items-center gap-2 flex-1 sm:flex-none">
+            <label className={`text-sm hidden sm:inline ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Прожект:</label>
             <input
               type="text"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className={`px-3 py-2 border rounded-lg text-sm ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-              placeholder="Проектийн нэр"
+              className={`px-3 py-2 border rounded-lg text-sm w-full sm:w-auto ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+              placeholder="Прожектийн нэр"
             />
           </div>
           
           {/* Save Button */}
           <button 
             onClick={handleSave}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="px-3 sm:px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm sm:text-base whitespace-nowrap"
           >
-            Хадгалах
+            <span className="sm:hidden">💾</span>
+            <span className="hidden sm:inline">Хадгалах</span>
           </button>
           
           {/* Publish/Deploy Button */}
           <button
             onClick={handlePublish}
             disabled={isPublishing}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-3 sm:px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm sm:text-base whitespace-nowrap"
           >
             {isPublishing ? (
               <>
                 <span className="animate-spin">⏳</span>
-                Нийтлэж байна...
+                <span className="hidden sm:inline">Нийтлэж байна...</span>
               </>
             ) : (
               <>
-                <span>🚀</span>
-                Нийтлэх
+               
+                <span className="hidden sm:inline">Нийтлэх</span>
               </>
             )}
           </button>
+          
+          {/* Toggle Logs Button */}
+          {(logs.length > 0 || showLogs) && (
+            <button
+              onClick={() => showLogs ? stopLogStream() : setShowLogs(true)}
+              className={`px-3 sm:px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm sm:text-base whitespace-nowrap ${
+                showLogs 
+                  ? 'bg-gray-700 text-white hover:bg-gray-600' 
+                  : 'bg-gray-600 text-white hover:bg-gray-500'
+              }`}
+            >
+              <Terminal className="w-4 h-4" />
+              <span className="hidden sm:inline">{showLogs ? 'Лог нуух' : 'Лог харах'}</span>
+              {logs.length > 0 && !showLogs && (
+                <span className="ml-1 px-1.5 py-0.5 bg-green-500 text-white text-xs rounded-full">
+                  {logs.length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Live PM2 Logs */}
+      {showLogs && (
+        <div className={`mb-4 sm:mb-6 rounded-lg border overflow-hidden ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-950 border-gray-800'}`}>
+          <div className={`flex items-center justify-between px-3 sm:px-4 py-2 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-900'}`}>
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-green-400" />
+              <h4 className="font-semibold text-green-400 text-sm">PM2 Live Logs</h4>
+              {isPublishing && (
+                <span className="flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">{logs.length} lines</span>
+              <button 
+                onClick={() => setLogs([])}
+                className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600"
+              >
+                Clear
+              </button>
+              <button 
+                onClick={stopLogStream}
+                className="text-xs px-2 py-1 rounded bg-red-900 text-red-300 hover:bg-red-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <div className="max-h-64 overflow-y-auto p-3 sm:p-4 font-mono text-xs sm:text-sm">
+            {logs.length === 0 ? (
+              <p className="text-gray-500 italic">Waiting for logs...</p>
+            ) : (
+              logs.map((log, index) => (
+                <div key={index} className="text-gray-300 break-all py-0.5">
+                  <span className="text-gray-500 mr-2">[{index + 1}]</span>
+                  {log}
+                </div>
+              ))
+            )}
+            <div ref={logsEndRef} />
+          </div>
+        </div>
+      )}
+
       {/* Publish Status */}
       {publishStatus && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <h4 className="font-semibold text-green-800 mb-2">Сайт амжилттай нийтлэгдлээ!</h4>
-          <p className="text-sm text-green-700">
+        <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+          <h4 className="font-semibold text-emerald-800 mb-1 sm:mb-2 text-sm sm:text-base">Сайт амжилттай нийтлэгдлээ!</h4>
+          <p className="text-xs sm:text-sm text-emerald-700 break-all">
             URL: <a href={publishStatus.url} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">{publishStatus.url}</a>
           </p>
-          <p className="text-xs text-green-600 mt-1">Port: {publishStatus.port}</p>
+          <p className="text-xs text-emerald-600 mt-1">Port: {publishStatus.port}</p>
         </div>
       )}
 
       {/* Page Management */}
-      <div className="mb-6 p-4 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Хуудсууд</h3>
-          <button onClick={() => setIsAddingPage(true)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+      <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 gap-2">
+          <h3 className={`font-semibold text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Хуудсууд</h3>
+          <button onClick={() => setIsAddingPage(true)} className="px-3 py-1.5 bg-slate-600 text-white rounded text-sm hover:bg-slate-700 whitespace-nowrap">
             + Хуудас нэмэх
           </button>
         </div>
         
         {isAddingPage && (
-          <div className="flex items-center space-x-2 mb-4">
+          <div className="flex items-center space-x-2 mb-3 sm:mb-4">
             <input
               type="text"
               value={newPageName}
@@ -2592,41 +3216,41 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-4 xl:gap-8">
-        {/* Components Panel - Hidden on mobile, visible on xl screens */}
-        <div className="hidden xl:block w-80 flex-shrink-0">
-          <div className={`rounded-lg shadow-sm border p-6 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
-            <h3 className={`font-semibold text-lg mb-4 ${isDarkMode ? 'text-white' : ''}`}>Бүрдлүүд</h3>
-            <div className="space-y-2">
+      <div className="flex flex-col xl:flex-row gap-4 xl:gap-6">
+        {/* Components Panel - Horizontal scroll on mobile, sidebar on xl */}
+        <div className="xl:hidden">
+          <div className={`rounded-lg shadow-sm border p-3 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className={`font-semibold text-sm ${isDarkMode ? 'text-white' : ''}`}>Бүрдлүүд</h3>
+              <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Доош гүйлгэнэ үү</span>
+            </div>
+            <div className="flex overflow-x-auto gap-2 pb-2 -mx-1 px-1">
               {availableComponents.map((comp) => (
                 <button
                   key={comp.type}
                   onClick={() => addComponent(comp.type)}
-                  className={`w-full flex items-center justify-between p-3 border rounded-lg transition-colors text-left ${isDarkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50'}`}
+                  className={`flex-shrink-0 px-3 py-2 text-xs sm:text-sm border rounded-lg transition-colors whitespace-nowrap ${isDarkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50'}`}
                 >
-                  <span className="font-medium">{comp.label}</span>
-                  <Plus className="w-4 h-4 text-gray-400" />
+                  {comp.label}
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Mobile Components Toggle */}
-        <div className="xl:hidden">
-          <div className={`rounded-lg shadow-sm border p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
-            <div className="flex justify-between items-center mb-3">
-              <h3 className={`font-semibold ${isDarkMode ? 'text-white' : ''}`}>Бүрдлүүд</h3>
-              <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Бүрдэл сонгоно уу</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {availableComponents.slice(0, 6).map((comp) => (
+        {/* Desktop Components Panel - xl screens only */}
+        <div className="hidden xl:block w-72 flex-shrink-0">
+          <div className={`rounded-lg shadow-sm border p-4 sticky top-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+            <h3 className={`font-semibold text-base mb-3 ${isDarkMode ? 'text-white' : ''}`}>Бүрдлүүд</h3>
+            <div className="space-y-1.5 max-h-[calc(100vh-200px)] overflow-y-auto">
+              {availableComponents.map((comp) => (
                 <button
                   key={comp.type}
                   onClick={() => addComponent(comp.type)}
-                  className={`px-3 py-2 text-sm border rounded-lg transition-colors ${isDarkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50'}`}
+                  className={`w-full flex items-center justify-between p-2.5 border rounded-lg transition-colors text-left text-sm ${isDarkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50'}`}
                 >
-                  {comp.label}
+                  <span className="font-medium">{comp.label}</span>
+                  <Plus className="w-4 h-4 text-gray-400" />
                 </button>
               ))}
             </div>
@@ -2694,6 +3318,8 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
                       component={component}
                       onEdit={editComponent}
                       onDelete={deleteComponent}
+                      onUpdateContent={handleUpdateContent}
+                      onUpdateStyle={handleUpdateStyle}
                       isSelected={selectedComponentId === component.id}
                       onSelect={setSelectedComponentId}
                       isDarkMode={isDarkMode}
@@ -2718,7 +3344,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
 
               {activePage.components.length === 0 && (
                 <div className={`text-center py-12 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  <p className="text-lg mb-4">Бүрдэл алга</p>
+                  <p className="text-lg mb-4">Хоосон байна</p>
                   <p>Эхлэхийн тулд зүүн талаас бүрдэл нэмнэ үү</p>
                 </div>
               )}
@@ -2726,22 +3352,24 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
           </div>
         </div>
 
-        {/* Edit Panel - Full width on mobile, fixed width on larger screens */}
+        {/* Edit Panel - Slide up modal on mobile, sidebar on desktop */}
         {editingComponent && (
-          <div className="w-full xl:w-96 flex-shrink-0 order-first xl:order-last">
-            <div className={`rounded-lg shadow-sm border p-4 sm:p-6 max-h-[80vh] xl:max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+          <div className="fixed inset-x-0 bottom-0 xl:static xl:w-80 xl:flex-shrink-0 z-50 xl:z-auto">
+            {/* Mobile overlay */}
+            <div className="xl:hidden fixed inset-0 bg-black/50" onClick={cancelComponentEdit} />
+            <div className={`relative rounded-t-xl xl:rounded-lg shadow-lg xl:shadow-sm border p-4 sm:p-5 max-h-[70vh] xl:max-h-[calc(100vh-100px)] overflow-y-auto ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
               <div className="flex justify-between items-center mb-4">
-                <h3 className={`font-semibold text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Засварлах {editingComponent.type}</h3>
+                <h3 className={`font-semibold text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Засварлах {editingComponent.type}</h3>
                 <div className="flex space-x-2">
                   <button 
                     onClick={cancelComponentEdit} 
-                    className={`px-3 py-1 rounded text-sm font-medium ${isDarkMode ? 'bg-red-900 text-red-200 hover:bg-red-800' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
+                    className={`px-3 py-1.5 rounded text-sm font-medium ${isDarkMode ? 'bg-red-900 text-red-200 hover:bg-red-800' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
                   >
                     Болих
                   </button>
                   <button 
                     onClick={saveComponentEdit} 
-                    className="px-3 py-1 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
                   >
                     Хадгалах
                   </button>
@@ -2763,6 +3391,10 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
                     <div>
                       <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Товчны текст</label>
                       <input type="text" value={editingComponent.content.buttonText || ''} onChange={(e) => updateComponentContent('buttonText', e.target.value)} className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`} placeholder="Товчны текст оруулах" />
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Товчны холбоос</label>
+                      <input type="text" value={editingComponent.content.buttonLink || ''} onChange={(e) => updateComponentContent('buttonLink', e.target.value)} className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`} placeholder="https://... эсвэл /contact" />
                     </div>
                   </>
                 )}
@@ -2936,7 +3568,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
                       : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500'
                   }`}
                 >
-                  <Image className="w-5 h-5 mx-auto mb-1" />
+                  <ImageIcon className="w-5 h-5 mx-auto mb-1" />
                   Зураг нэмэх
                 </button>
 
@@ -3008,7 +3640,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
                             <img src={imagePreview} alt="Preview" className="max-h-32 mx-auto rounded" />
                           ) : (
                             <>
-                              <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                              <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
                               <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 Файл сонгох эсвэл энд чирнэ үү
                               </p>
@@ -3240,7 +3872,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
                           : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500'
                       }`}
                     >
-                      <Image className="w-5 h-5 mx-auto mb-1" />
+                      <ImageIcon className="w-5 h-5 mx-auto mb-1" />
                       {activePage.backgroundImage ? 'Арын зураг өөрчлөх' : 'Арын зураг нэмэх'}
                     </button>
                     
@@ -3290,7 +3922,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
                               <img src={bgImagePreview} alt="Preview" className="max-h-32 mx-auto rounded" />
                             ) : (
                               <>
-                                <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
                                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                   Файл сонгох эсвэл энд чирнэ үү
                                 </p>
@@ -3405,6 +4037,38 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template }: We
           </div>
         )}
       </div>
+
+      {/* Global Component Warning Modal */}
+      {showGlobalWarning && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className={`rounded-lg p-6 max-w-md w-full shadow-2xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                <span className="text-yellow-600 text-xl">⚠️</span>
+              </div>
+              <h3 className={`font-semibold text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Бүх хуудасны загвар</h3>
+            </div>
+            <p className={`mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              <strong>{pendingGlobalComponent}</strong> нь бүх хуудас дээр гарч ирнэ. 
+              Та нэмэхийг хүсэж байна уу?
+            </p>
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => { setShowGlobalWarning(false); setPendingGlobalComponent(null); }}
+                className={`flex-1 py-2 rounded-lg font-medium ${isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                Болих
+              </button>
+              <button 
+                onClick={confirmAddGlobalComponent}
+                className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+              >
+                Бүх хуудаст нэмэх
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,15 +1,19 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, Search, Edit, Trash2, ExternalLink } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Search, Edit, Trash2, Link2, Loader2, X } from 'lucide-react'
+import { userApi } from '@/lib/api-service'
 
 interface User {
-  id: string
-  name: string
   email: string
-  domain: string
-  status: 'active' | 'inactive'
-  createdAt: string
+  role: 'superadmin' | 'client-admin' | 'editor'
+  bindings: Binding[]
+  createdAt?: string
+}
+
+interface Binding {
+  projectName: string
+  roles: string[]
 }
 
 interface UserManagementProps {
@@ -17,230 +21,391 @@ interface UserManagementProps {
 }
 
 export default function UserManagement({ isDarkMode = false }: UserManagementProps) {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'foodcity',
-      email: 'admin@foodcity.zevtabs.mn',
-      domain: 'foodcity.zevtabs.mn',
-      status: 'active',
-      createdAt: '2026-01-15'
-    },
-    {
-      id: '2',
-      name: 'rently',
-      email: 'turees@zevtabs.mn',
-      domain: 'turees.zevtabs.mn',
-      status: 'active',
-      createdAt: '2026-01-20'
-    }
-  ])
-
+  const [users, setUsers] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
-  const [newUser, setNewUser] = useState({ name: '', email: '' })
+  const [showBindingModal, setShowBindingModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<string | null>(null)
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'client-admin' as const })
+  const [newBinding, setNewBinding] = useState({ projectName: '', roles: ['editor'] })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.domain.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Load users on mount
+  useEffect(() => {
+    loadUsers()
+  }, [])
 
-  const handleAddUser = () => {
-    if (newUser.name) {
-      const user: User = {
-        id: Date.now().toString(),
-        name: newUser.name.toLowerCase().replace(/\s+/g, ''),
-        email: newUser.email || `admin@${newUser.name.toLowerCase().replace(/\s+/g, '')}.zevtabs.mn`,
-        domain: `${newUser.name.toLowerCase().replace(/\s+/g, '')}.zevtabs.mn`,
-        status: 'active',
-        createdAt: new Date().toISOString().split('T')[0]
-      }
-      setUsers([...users, user])
-      setNewUser({ name: '', email: '' })
-      setShowAddModal(false)
+  const loadUsers = async () => {
+    try {
+      setIsLoading(true)
+      const data = await userApi.list()
+      // Fetch bindings for each user
+      const usersWithBindings = await Promise.all(
+        data.map(async (user: any) => {
+          try {
+            const bindings = await userApi.getBindings(user.email)
+            return { ...user, bindings }
+          } catch {
+            return { ...user, bindings: [] }
+          }
+        })
+      )
+      setUsers(usersWithBindings)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleDeleteUser = (id: string) => {
-    setUsers(users.filter(user => user.id !== id))
+  const filteredUsers = users.filter(user =>
+    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const handleAddUser = async () => {
+    if (!newUser.email || !newUser.password) return
+    
+    setIsSubmitting(true)
+    setError('')
+    
+    try {
+      await userApi.create(newUser.email, newUser.password, newUser.role)
+      await loadUsers()
+      setNewUser({ email: '', password: '', role: 'client-admin' })
+      setShowAddModal(false)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const toggleUserStatus = (id: string) => {
-    setUsers(users.map(user =>
-      user.id === id
-        ? { ...user, status: user.status === 'active' ? 'inactive' : 'active' }
-        : user
-    ))
+  const handleAddBinding = async () => {
+    if (!selectedUser || !newBinding.projectName) return
+    
+    setIsSubmitting(true)
+    setError('')
+    
+    try {
+      await userApi.addBinding(selectedUser, newBinding.projectName, newBinding.roles)
+      await loadUsers()
+      setNewBinding({ projectName: '', roles: ['editor'] })
+      setShowBindingModal(false)
+      setSelectedUser(null)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleRemoveBinding = async (email: string, projectName: string) => {
+    if (!confirm(`"${projectName}" төсөлд хандах эрхийг хасах уу?`)) return
+    
+    try {
+      await userApi.removeBinding(email, projectName)
+      await loadUsers()
+    } catch (err: any) {
+      setError(err.message)
+    }
   }
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h2 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Хэрэглэгчдийн удирдлага</h2>
-          <p className={`mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Хэрэглэгчдийг болон тэдний вэбсайтуудыг удирдах</p>
+    <div className={`min-h-screen p-6 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className={`text-3xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Хэрэглэгч удирдлага</h1>
+        <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+          Хэрэглэгчдийг үүсгэж, төслийн хандалтыг удирдна уу
+        </p>
+      </div>
+
+      {/* Error Alert */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <p className="text-red-600 text-sm">{error}</p>
+          <button 
+            onClick={() => setError('')}
+            className="text-red-600 text-sm underline mt-1"
+          >
+            Хаах
+          </button>
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="relative flex-1 max-w-md">
+          <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${isDarkMode ? 'text-slate-400' : 'text-gray-400'}`} />
+          <input
+            type="text"
+            placeholder="Хэрэглэгч хайх..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+              isDarkMode 
+                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
+                : 'bg-white border-gray-300'
+            }`}
+          />
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/30"
+          className="flex items-center px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors ml-4"
         >
           <Plus className="w-5 h-5 mr-2" />
           Хэрэглэгч нэмэх
         </button>
       </div>
 
-      <div className={`rounded-lg shadow-sm border overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
-        <div className={`p-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
-          <div className="relative">
-            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${isDarkMode ? 'text-slate-400' : 'text-gray-400'}`} />
-            <input
-              type="text"
-              placeholder="Хэрэглэгч хайх..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                isDarkMode 
-                  ? 'bg-slate-900 border-slate-600 text-white placeholder-slate-500' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-            />
+      {/* Users List */}
+      <div className={`rounded-xl border overflow-hidden shadow-lg ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        {isLoading ? (
+          <div className="p-12 text-center">
+            <Loader2 className={`w-8 h-8 mx-auto animate-spin ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+            <p className={`mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Хэрэглэгчдийг ачаалж байна...</p>
           </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className={isDarkMode ? 'bg-slate-900/50' : 'bg-gray-50'}>
-              <tr>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Хэрэглэгч
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Домайн
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Төлөв
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Үүсгэсэн
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Үйлдэл
-                </th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDarkMode ? 'bg-slate-800 divide-slate-700' : 'bg-white divide-gray-200'}`}>
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className={isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{user.name}</div>
-                      <div className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{user.email}</div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Хэрэглэгч олдсонгүй</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {filteredUsers.map((user) => (
+              <div key={user.email} className={`p-6 ${isDarkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'}`}>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                        user.role === 'superadmin' 
+                          ? 'bg-purple-100 text-purple-800' 
+                          : user.role === 'client-admin'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {user.role}
+                      </span>
+                      <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                        {user.email}
+                      </h3>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`flex items-center text-sm ${isDarkMode ? 'text-slate-300' : 'text-gray-900'}`}>
-                      {user.domain}
-                      <a
-                        href={`http://${user.domain}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`ml-2 ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'}`}
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
+                    
+                    {/* Project Bindings */}
+                    <div className="mt-3">
+                      <p className={`text-sm mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
+                        Төслийн хандалт:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {user.bindings?.length > 0 ? (
+                          user.bindings.map((binding) => (
+                            <span 
+                              key={binding.projectName}
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+                                isDarkMode 
+                                  ? 'bg-gray-700 text-gray-300' 
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {binding.projectName}
+                              <button
+                                onClick={() => handleRemoveBinding(user.email, binding.projectName)}
+                                className="ml-2 text-red-500 hover:text-red-700"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))
+                        ) : (
+                          <span className={`text-sm italic ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                            Төслийн хандалт байхгүй
+                          </span>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user.email)
+                            setShowBindingModal(true)
+                          }}
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm border border-dashed ${
+                            isDarkMode 
+                              ? 'border-gray-600 text-gray-400 hover:border-blue-500 hover:text-blue-400' 
+                              : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500'
+                          }`}
+                        >
+                          <Link2 className="w-3 h-3 mr-1" />
+                          Нэмэх
+                        </button>
+                      </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      onClick={() => toggleUserStatus(user.id)}
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${
-                        user.status === 'active'
-                          ? isDarkMode 
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                            : 'bg-green-100 text-green-800'
-                          : isDarkMode
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {user.status === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
-                    </span>
-                  </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                    {user.createdAt}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button className={`mr-3 ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-900'}`}>
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteUser(user.id)}
-                      className={isDarkMode ? 'text-red-400 hover:text-red-300' : 'text-red-600 hover:text-red-900'}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Add User Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className={`rounded-lg p-6 w-96 shadow-2xl ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white'}`}>
+          <div className={`rounded-xl p-6 w-96 shadow-2xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'}`}>
             <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Шинэ хэрэглэгч нэмэх</h3>
             <div className="space-y-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
-                  Хэрэглэгчийн нэр
-                </label>
-                <input
-                  type="text"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isDarkMode 
-                      ? 'bg-slate-900 border-slate-600 text-white placeholder-slate-500' 
-                      : 'bg-white border-gray-300'
-                  }`}
-                  placeholder="жишээ: foodcity"
-                />
-                <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-500' : 'text-gray-500'}`}>
-                  Домайн: {newUser.name.toLowerCase().replace(/\s+/g, '') || 'username'}.zevtabs.mn
-                </p>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
-                  Имэйл (заавал биш)
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Имэйл
                 </label>
                 <input
                   type="email"
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                     isDarkMode 
-                      ? 'bg-slate-900 border-slate-600 text-white placeholder-slate-500' 
+                      ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
                       : 'bg-white border-gray-300'
                   }`}
-                  placeholder="admin@foodcity.zevtabs.mn"
+                  placeholder="user@example.com"
+                  
                 />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Нууц үг
+                </label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    isDarkMode 
+                      ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
+                      : 'bg-white border-gray-300'
+                  }`}
+                  placeholder="Нууц үг"
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Эрх
+                </label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isDarkMode 
+                      ? 'bg-gray-900 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300'
+                  }`}
+                >
+                  <option value="client-admin">Клиент Админ</option>
+                  <option value="editor">Засварлагч</option>
+                  <option value="superadmin">Супер Админ</option>
+                </select>
               </div>
             </div>
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setShowAddModal(false)}
-                className={`px-4 py-2 rounded-lg ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-gray-600 hover:text-gray-800'}`}
+                className={`px-4 py-2 rounded-lg ${isDarkMode ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' : 'text-gray-600 hover:text-gray-800'}`}
               >
                 Болих
               </button>
               <button
                 onClick={handleAddUser}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={isSubmitting || !newUser.email || !newUser.password}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-emerald-600/50 flex items-center"
               >
-                Нэмэх
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Нэмж байна...
+                  </>
+                ) : (
+                  'Хэрэглэгч нэмэх'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Binding Modal */}
+      {showBindingModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className={`rounded-xl p-6 w-96 shadow-2xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'}`}>
+            <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-black'}`}>
+              Төслийн хандалт олгох
+            </h3>
+            <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-black'}`}>
+              Хэрэглэгч: {selectedUser}
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Төслийн нэр
+                </label>
+                <input
+                  type="text"
+                  value={newBinding.projectName}
+                  onChange={(e) => setNewBinding({ ...newBinding, projectName: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    isDarkMode 
+                      ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
+                      : 'bg-white border-gray-300'
+                  }`}
+                  placeholder="жишээ: acme-storefront"
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Төсөл дахь эрх
+                </label>
+                <select
+                  multiple
+                  value={newBinding.roles}
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions, opt => opt.value)
+                    setNewBinding({ ...newBinding, roles: values })
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isDarkMode 
+                      ? 'bg-gray-900 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300'
+                  }`}
+                >
+                  <option value="client-admin">Клиент Админ</option>
+                  <option value="editor">Засварлагч</option>
+                </select>
+                <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Олон сонгохын тулд Ctrl/Cmd дарна уу
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowBindingModal(false)
+                  setSelectedUser(null)
+                }}
+                className={`px-4 py-2 rounded-lg ${isDarkMode ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' : 'text-gray-600 hover:text-gray-800'}`}
+              >
+                Болих
+              </button>
+              <button
+                onClick={handleAddBinding}
+                disabled={isSubmitting || !newBinding.projectName}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-emerald-600/50 flex items-center"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Олгож байна...
+                  </>
+                ) : (
+                  'Хандалт олгох'
+                )}
               </button>
             </div>
           </div>
