@@ -49,6 +49,15 @@ const ensureComponentRequiredProps = (payload: ComponentPayload): ComponentPaylo
   if ((type === 'header' || type === 'hero') && !title) {
     nextProps.title = type === 'header' ? 'Site Header' : 'Welcome'
   }
+  if (type === 'footer') {
+    if (!title) {
+      nextProps.title = 'Footer'
+    }
+    const copyright = typeof nextProps.copyright === 'string' ? nextProps.copyright.trim() : ''
+    if (!copyright) {
+      nextProps.copyright = `© ${new Date().getFullYear()} All rights reserved.`
+    }
+  }
 
   return {
     ...payload,
