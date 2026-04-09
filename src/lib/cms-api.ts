@@ -19,6 +19,16 @@ const getCurrentProject = () => {
   return ''
 }
 
+const resolveProjectContext = (explicitProject?: string, required = false) => {
+  const projectId = (explicitProject || getCurrentProject() || '').trim()
+  if (required && !projectId) {
+    throw new Error('Project context is required (set currentProject or pass projectName)')
+  }
+  return projectId
+}
+
+const isAscii = (value: string) => /^[\x00-\x7F]*$/.test(value)
+
 // Helper function for API requests
 async function fetchAPI(endpoint: string, options?: RequestInit, compress: boolean = false) {
   const url = `${BASE_URL}${endpoint}`
@@ -28,8 +38,6 @@ async function fetchAPI(endpoint: string, options?: RequestInit, compress: boole
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${getToken()}`,
   }
-  
-  // Note: x-project-id header removed due to CORS - using body instead
   
   if (options?.headers) {
     Object.entries(options.headers).forEach(([key, value]) => {
@@ -109,26 +117,64 @@ export const ComponentAPI = {
   },
 
   // POST /api/components - Create or update component
-  saveComponent: (component: ComponentTemplate) =>
-    fetchAPI('/components', {
+  saveComponent: (component: ComponentTemplate) => {
+    const projectId = resolveProjectContext(component.projectName, true)
+    const requestHeaders: Record<string, string> = {}
+    if (isAscii(projectId)) {
+      requestHeaders['x-project-id'] = projectId
+      requestHeaders['x-project-name'] = projectId
+    }
+
+    return fetchAPI(`/components?projectId=${encodeURIComponent(projectId)}`, {
       method: 'POST',
-      body: JSON.stringify(component),
-    }),
+      headers: requestHeaders,
+      body: JSON.stringify({
+        ...component,
+        projectId,
+      }),
+    })
+  },
 
   // PUT /api/components/:type - Update specific component
-  updateComponent: (type: string, component: Partial<ComponentTemplate>) =>
-    fetchAPI(`/components/${type}`, {
+  updateComponent: (type: string, component: Partial<ComponentTemplate>) => {
+    const projectId = resolveProjectContext(component.projectName, true)
+    const endpoint = `/components/${type}?projectId=${encodeURIComponent(projectId)}`
+    const requestHeaders: Record<string, string> = {}
+    if (isAscii(projectId)) {
+      requestHeaders['x-project-id'] = projectId
+      requestHeaders['x-project-name'] = projectId
+    }
+
+    return fetchAPI(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(component),
-    }),
+      headers: requestHeaders,
+      body: JSON.stringify({
+        ...component,
+        projectId,
+      }),
+    })
+  },
 
   // DELETE /api/components/:type - Delete component
   // Body: { projectName: string } (for project-level components)
-  deleteComponent: (type: string, projectName?: string) =>
-    fetchAPI(`/components/${type}`, {
+  deleteComponent: (type: string, projectName?: string) => {
+    const projectId = resolveProjectContext(projectName, true)
+    const endpoint = `/components/${type}?projectId=${encodeURIComponent(projectId)}`
+    const requestHeaders: Record<string, string> = {}
+    if (isAscii(projectId)) {
+      requestHeaders['x-project-id'] = projectId
+      requestHeaders['x-project-name'] = projectId
+    }
+
+    return fetchAPI(endpoint, {
       method: 'DELETE',
-      body: JSON.stringify(projectName ? { projectName } : {}),
-    }),
+      headers: requestHeaders,
+      body: JSON.stringify({
+        projectName: projectId,
+        projectId,
+      }),
+    })
+  },
 }
 
 // ==================== 1. PROJECTS API (/api/v2/core/projects) ====================

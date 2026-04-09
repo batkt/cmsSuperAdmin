@@ -27,7 +27,7 @@ import {
   Image as ImageIcon, GripHorizontal, Video as VideoIcon
 } from 'lucide-react'
 import { CMSAPI } from '@/lib/cms-api'
-import { projectApi } from '@/lib/api-service'
+import { componentApi, projectApi } from '@/lib/api-service'
 import DraggableSection, { SectionContainer, SectionType } from './DraggableSection'
 
 // Color Palette - Tailwind CSS inspired
@@ -2456,17 +2456,21 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
 
   // Save components to component library
   const saveComponents = async (cleanProjectName: string) => {
+    if (!cleanProjectName?.trim()) {
+      throw new Error('Project name is required before saving components')
+    }
+
     // Store project name in localStorage for API header
     localStorage.setItem('currentProject', cleanProjectName)
     localStorage.setItem('projectName', cleanProjectName)
     
-    // Get unique component types used in all pages
-    const usedTypes = new Set<string>()
-    pages.forEach(page => {
-      page.components.forEach(comp => {
-        usedTypes.add(comp.type)
-      })
-    })
+    const routeByPageName: Record<string, string> = {
+      Home: '/home',
+      About: '/about',
+      Services: '/services',
+      Blog: '/blog',
+      Contact: '/contact',
+    }
     
     // Map component types to their codes
     const componentCodes: Record<string, string> = {
@@ -2797,44 +2801,63 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
 }`
     }
     
-    const componentCategories: Record<string, string> = {
-      header: 'Navbar',
-      home: 'Hero',
-      about: 'Content',
-      service: 'Services',
-      contact: 'Contact',
-      footer: 'Footer',
-      card: 'Cards',
-      text: 'Content',
-      gif: 'Media',
-      grid: 'Layout',
-      contactform: 'Forms',
-      pagination: 'Navigation',
-      chatbot: 'Widgets'
+    const componentTypeMap: Record<string, string> = {
+      home: 'hero',
+      service: 'services',
+      contactform: 'contact-form',
     }
-    
-    // Save each unique component type
-    const savePromises = Array.from(usedTypes).map(async (type) => {
-      const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1)
-      const code = componentCodes[type] || componentCodes.home
-      
-      const componentTemplate = {
-        type: capitalizedType,
-        category: componentCategories[type] || 'General',
-        code: code,
-        description: `${capitalizedType} component for ${cleanProjectName}`,
-        defaultProps: {},
-        projectName: cleanProjectName
-      }
-      
+
+    const componentInstances = pages.flatMap((page) =>
+      page.components.map((comp, idx) => {
+        const normalizedType = componentTypeMap[comp.type] || comp.type
+        const pageRoute = page.path?.trim() || routeByPageName[page.name] || '/'
+        const props: Record<string, any> = { ...comp.content }
+
+        // Keep route awareness for header instances.
+        if (comp.type === 'header') {
+          props.pages = pages.map((p) => ({ route: p.path, title: p.name }))
+          props.currentRoute = pageRoute
+          delete props.navLinks
+        }
+
+        // Preserve optional background video for hero-like blocks.
+        if (comp.type === 'home' && page.backgroundVideo) {
+          props.backgroundVideo = page.backgroundVideo
+        }
+
+        return {
+          componentType: normalizedType,
+          pageRoute,
+          order: idx,
+          props,
+          content: {
+            styles: comp.styles,
+            code: componentCodes[comp.type] || componentCodes.home,
+          },
+        }
+      })
+    )
+
+    if (componentInstances.length === 0) {
+      throw new Error('No components found to save')
+    }
+
+    const failedInstances: string[] = []
+    const savePromises = componentInstances.map(async (instance) => {
       try {
-        await CMSAPI.Component.saveComponent(componentTemplate)
-      } catch {
-        // Don't throw, continue with other components
+        await componentApi.create(cleanProjectName, instance)
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'Unknown error'
+        failedInstances.push(`${instance.componentType}@${instance.pageRoute} -> ${reason}`)
+        console.error(`Failed to save component instance: ${instance.componentType} (${instance.pageRoute})`, error)
       }
     })
     
     await Promise.all(savePromises)
+
+    if (failedInstances.length > 0) {
+      throw new Error(`Failed to save components: ${failedInstances.join(', ')}`)
+    }
   }
 
   const handlePublish = async () => {
@@ -2844,6 +2867,10 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
     
     // Use project name as-is (allow Unicode characters like Mongolian)
     const cleanProjectName = projectName.trim()
+    if (!cleanProjectName) {
+      alert('Прожектийн нэр оруулна уу')
+      return
+    }
     localStorage.setItem('currentProject', cleanProjectName)
     localStorage.setItem('projectName', cleanProjectName)
     
@@ -2958,6 +2985,10 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
     try {
       // Use project name as-is (allow Unicode characters like Mongolian)
       const cleanProjectName = projectName.trim()
+      if (!cleanProjectName) {
+        alert('Прожектийн нэр оруулна уу')
+        return
+      }
       
       // Store in localStorage for API calls
       localStorage.setItem('currentProject', cleanProjectName)

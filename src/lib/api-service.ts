@@ -2,7 +2,8 @@
 // Based on SUPERADMIN.md specification
 
 const getApiUrl = () => localStorage.getItem('apiUrl') || 'http://202.179.6.77:4000'
-const getToken = () => localStorage.getItem('superadminToken')
+const getToken = () => localStorage.getItem('superadminToken') || localStorage.getItem('token') || ''
+const isLatin1Safe = (value: string) => /^[\x00-\xFF]*$/.test(value)
 
 const headers = (includeProject = false, projectName?: string) => {
   const h: Record<string, string> = {
@@ -15,10 +16,31 @@ const headers = (includeProject = false, projectName?: string) => {
   return h
 }
 
+const componentHeaders = (projectName: string) => {
+  const normalizedProject = projectName?.trim()
+  if (!normalizedProject) {
+    throw new Error('Project context is required for component endpoints')
+  }
+
+  const baseHeaders = headers(false)
+  // Browser fetch rejects non ISO-8859-1 header values, so only attach when safe.
+  if (isLatin1Safe(normalizedProject)) {
+    baseHeaders['x-project-id'] = normalizedProject
+    baseHeaders['x-project-name'] = normalizedProject
+  }
+  return baseHeaders
+}
+
 // Error handler
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
+    if (response.status === 401) {
+      throw new Error(error.message || 'Unauthorized: missing, expired, or invalid access token')
+    }
+    if (response.status === 403) {
+      throw new Error(error.message || 'Forbidden: insufficient route role or project role')
+    }
     throw new Error(error.message || `HTTP ${response.status}: ${response.statusText}`)
   }
   return response.json()
@@ -221,24 +243,33 @@ export const componentApi = {
     props?: object
     content?: object | string
   }) => {
-    const response = await fetch(`${getApiUrl()}/api/v2/core/components`, {
+    const normalizedProject = projectName.trim()
+    const response = await fetch(`${getApiUrl()}/api/v2/core/components?projectId=${encodeURIComponent(normalizedProject)}`, {
       method: 'POST',
-      headers: headers(true, projectName),
-      body: JSON.stringify(data),
+      headers: componentHeaders(normalizedProject),
+      body: JSON.stringify({
+        ...data,
+        projectId: normalizedProject,
+      }),
     })
     return handleResponse(response)
   },
 
   // Patch component
   patch: async (projectName: string, instanceId: string, data: {
+    componentType?: string
     pageRoute?: string
     props?: object
     content?: object | string
   }) => {
-    const response = await fetch(`${getApiUrl()}/api/v2/core/components/${instanceId}`, {
+    const normalizedProject = projectName.trim()
+    const response = await fetch(`${getApiUrl()}/api/v2/core/components/${instanceId}?projectId=${encodeURIComponent(normalizedProject)}`, {
       method: 'PATCH',
-      headers: headers(true, projectName),
-      body: JSON.stringify(data),
+      headers: componentHeaders(normalizedProject),
+      body: JSON.stringify({
+        ...data,
+        projectId: normalizedProject,
+      }),
     })
     return handleResponse(response)
   },
@@ -249,10 +280,11 @@ export const componentApi = {
     order: number
     parentId?: string | null
   }>) => {
-    const response = await fetch(`${getApiUrl()}/api/v2/core/components/reorder`, {
+    const normalizedProject = projectName.trim()
+    const response = await fetch(`${getApiUrl()}/api/v2/core/components/reorder?projectId=${encodeURIComponent(normalizedProject)}`, {
       method: 'POST',
-      headers: headers(true, projectName),
-      body: JSON.stringify({ instances }),
+      headers: componentHeaders(normalizedProject),
+      body: JSON.stringify({ instances, projectId: normalizedProject }),
     })
     return handleResponse(response)
   },
