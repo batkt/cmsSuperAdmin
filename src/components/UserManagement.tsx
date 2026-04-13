@@ -17,9 +17,9 @@ interface Binding { projectName: string; roles: string[] }
 interface UserManagementProps { isDarkMode?: boolean }
 
 const roleStyles: Record<string, { label: string; badge: string; avatar: string }> = {
-  superadmin:    { label: 'Супер Админ',  badge: 'bg-violet-50 text-violet-700 border border-violet-200',   avatar: 'from-violet-500 to-violet-700'   },
-  'client-admin':{ label: 'Харилцагч Админ', badge: 'bg-indigo-50 text-indigo-700 border border-indigo-200',   avatar: 'from-indigo-500 to-indigo-700'   },
-  editor:        { label: 'Засварлагч',       badge: 'bg-slate-50 text-slate-600 border border-slate-200',      avatar: 'from-slate-400 to-slate-600'     },
+  superadmin: { label: 'Супер Админ', badge: 'bg-violet-50 text-violet-700 border border-violet-200', avatar: 'from-violet-500 to-violet-700' },
+  'client-admin': { label: 'Харилцагч Админ', badge: 'bg-indigo-50 text-indigo-700 border border-indigo-200', avatar: 'from-indigo-500 to-indigo-700' },
+  editor: { label: 'Засварлагч', badge: 'bg-slate-50 text-slate-600 border border-slate-200', avatar: 'from-slate-400 to-slate-600' },
 }
 
 function Modal({ show, onClose, title, children, isDark }: {
@@ -32,8 +32,8 @@ function Modal({ show, onClose, title, children, isDark }: {
       <div
         className="relative w-full max-w-md rounded-2xl p-6 shadow-2xl animate-scale-in"
         style={{
-          background: isDark ? 'hsl(224 50% 7%)' : 'white',
-          border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid hsl(220 13% 91%)',
+          background: isDark ? '#0f172a' : 'white',
+          border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
         }}
       >
         <div className="flex items-center justify-between mb-5">
@@ -58,30 +58,29 @@ function FormField({ label, children, isDark }: { label: string; children: React
 }
 
 const inputCls = (isDark: boolean) =>
-  `w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all duration-200 ${
-    isDark
-      ? 'bg-slate-800/80 border border-slate-700 text-white placeholder-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
-      : 'bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/15'
+  `w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all duration-200 ${isDark
+    ? 'bg-slate-800/80 border border-slate-700 text-white placeholder-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+    : 'bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/15'
   }`
 
 export default function UserManagement({ isDarkMode = false }: UserManagementProps) {
   const dm = isDarkMode
-  const [users, setUsers]             = useState<User[]>([])
-  const [isLoading, setIsLoading]     = useState(true)
-  const [error, setError]             = useState('')
-  const [searchTerm, setSearchTerm]   = useState('')
+  const [users, setUsers] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
 
   // Modals
-  const [showAdd, setShowAdd]       = useState(false)
-  const [showEdit, setShowEdit]     = useState(false)
-  const [showBind, setShowBind]     = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [showBind, setShowBind] = useState(false)
   const [showProjects, setShowProjects] = useState(false)
 
   // Forms
-  const [newUser, setNewUser]       = useState({ email: '', password: '', role: 'client-admin' as any })
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'client-admin' as any })
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [editForm, setEditForm]     = useState({ password: '', role: 'client-admin' as any })
+  const [editForm, setEditForm] = useState({ password: '', role: 'client-admin' as any })
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
   const [newBinding, setNewBinding] = useState({ projectName: '', roles: ['editor'] })
   const [selectedUserForProjects, setSelectedUserForProjects] = useState<User | null>(null)
@@ -175,10 +174,10 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
   }
 
   const btnPrimary = 'px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 flex items-center gap-2'
-  const btnGhost   = (d: boolean) => `px-4 py-2 rounded-xl text-sm transition-all ${d ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`
+  const btnGhost = (d: boolean) => `px-4 py-2 rounded-xl text-sm transition-all ${d ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`
 
   return (
-    <div className={`min-h-screen p-6 ${dm ? 'bg-[hsl(224_71%_4%)]' : 'bg-[hsl(220_20%_98%)]'}`}>
+    <div className={`min-h-screen p-6 transition-colors duration-300 ${dm ? 'bg-background' : 'bg-slate-50'}`}>
       {/* Header */}
       <div className="flex items-start justify-between mb-6 animate-slide-in-left">
         <div>
@@ -237,17 +236,16 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
       ) : (
         <div className="space-y-3 stagger-children">
           {filteredUsers.map(user => {
-            const rs  = roleStyles[user.role] || roleStyles.editor
+            const rs = roleStyles[user.role] || roleStyles.editor
             const initials = user.email.slice(0, 2).toUpperCase()
             const isExpanded = expandedUser === user.email
             return (
               <div
                 key={user.email}
-                className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
-                  dm
+                className={`rounded-2xl border transition-all duration-200 overflow-hidden ${dm
                     ? 'bg-slate-800/70 border-slate-700 hover:border-slate-600'
                     : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm'
-                }`}
+                  }`}
               >
                 <div className="p-4 flex items-center gap-3">
                   {/* Avatar */}
@@ -258,7 +256,7 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className={`text-sm font-semibold truncate ${dm ? 'text-white' : 'text-slate-900'}`}>{user.email}</p>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${rs.badge}`}>{rs.label}</span>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${dm ? rs.badge : rs.badge.replace('-500/10', '-50').replace('-400', '-700').replace('-500/20', '-200')}`}>{rs.label}</span>
                     </div>
                     <p className={`text-xs mt-0.5 ${dm ? 'text-slate-500' : 'text-slate-400'}`}>
                       {user.bindings?.length ?? 0} төсөл холбогдсон

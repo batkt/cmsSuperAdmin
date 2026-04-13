@@ -13,6 +13,7 @@ export { default as UserManagement } from './UserManagement'
 
 // Website Building
 export { default as WebsiteBuilder } from './WebsiteBuilder'
+export { default as Canvas } from './Canvas'
 export { default as TemplateLibrary } from './TemplateLibrary'
 export { default as DraggableSection } from './DraggableSection'
 

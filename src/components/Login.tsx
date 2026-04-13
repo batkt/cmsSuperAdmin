@@ -2,34 +2,34 @@
 
 import { useState } from 'react'
 import { Eye, EyeOff, Lock, Mail, ArrowRight, Zap } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { api } from '@/lib/api'
 
-interface LoginProps {
-  onLogin: (token: string, user: any) => void
-}
-
-export default function Login({ onLogin }: LoginProps) {
+export default function Login() {
   const [email, setEmail] = useState('admin@demo.com')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
+  const setSession = useAuthStore(s => s.setSession)
+
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const { clientX, clientY } = e;
+    const moveX = (clientX - window.innerWidth / 2) / 25;
+    const moveY = (clientY - window.innerHeight / 2) / 25;
+    setMousePos({ x: moveX, y: moveY });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
     try {
-      const apiUrl = 'http://202.179.6.77:4000'
-      const response = await fetch(`${apiUrl}/api/v2/core/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'Нэвтрэхэд алдаа гарлаа')
-      const responseData = data.data || data
-      onLogin(responseData.accessToken || responseData.token, responseData.user)
+      const data = await api.login(email, password)
+      setSession(data.accessToken, data.refreshToken, data.user)
     } catch (err: any) {
       setError(err.message || 'Сервертэй холбогдож чадсангүй')
     } finally {
@@ -38,21 +38,45 @@ export default function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#070b1a]">
+    <div
+      className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#070b1a]"
+      onMouseMove={handleMouseMove}
+    >
       {/* Ambient gradient orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full opacity-30 animate-float"
-          style={{ background: 'radial-gradient(circle, hsl(238 84% 67%) 0%, transparent 70%)' }}
+          className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full opacity-30 transition-transform duration-700 ease-out"
+          style={{
+            background: 'radial-gradient(circle, hsl(238 84% 67%) 0%, transparent 70%)',
+            transform: `translate(${mousePos.x}px, ${mousePos.y}px)`
+          }}
         />
         <div
-          className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full opacity-20 animate-float"
-          style={{ background: 'radial-gradient(circle, hsl(262 83% 65%) 0%, transparent 70%)', animationDelay: '2s' }}
+          className="absolute -bottom-40 -right-40 w-[700px] h-[700px] rounded-full opacity-20 transition-transform duration-1000 ease-out"
+          style={{
+            background: 'radial-gradient(circle, hsl(262 83% 65%) 0%, transparent 70%)',
+            transform: `translate(${-mousePos.x * 1.5}px, ${-mousePos.y * 1.5}px)`
+          }}
         />
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full opacity-5"
-          style={{ background: 'radial-gradient(circle, #fff 0%, transparent 60%)' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full opacity-[0.03] transition-transform duration-500 ease-out"
+          style={{
+            background: 'radial-gradient(circle, #fff 0%, transparent 60%)',
+            transform: `translate(${-mousePos.x * 0.5}px, ${-mousePos.y * 0.5}px)`
+          }}
         />
+
+        {/* Animated accent orb near mouse */}
+        <div
+          className="absolute w-[400px] h-[400px] rounded-full opacity-[0.15] blur-[100px] pointer-events-none transition-all duration-300 ease-out"
+          style={{
+            background: 'hsl(238 84% 67%)',
+            left: `calc(50% + ${mousePos.x * 20}px)`,
+            top: `calc(50% + ${mousePos.y * 20}px)`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+
         {/* Grid overlay */}
         <div
           className="absolute inset-0 opacity-[0.04]"
@@ -73,6 +97,7 @@ export default function Login({ onLogin }: LoginProps) {
             left: `${10 + i * 14}%`,
             animationDelay: `${i * 0.7}s`,
             animationDuration: `${3 + i * 0.5}s`,
+            transform: `translate(${mousePos.x * (i + 1) * 0.1}px, ${mousePos.y * (i + 1) * 0.1}px)`
           }}
         />
       ))}
@@ -80,13 +105,11 @@ export default function Login({ onLogin }: LoginProps) {
       <div className="relative z-10 w-full max-w-[420px] px-4">
         {/* Brand */}
         <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 relative"
-            style={{ background: 'linear-gradient(135deg, hsla(140, 91%, 55%, 1.00), hsla(229, 100%, 60%, 1.00))' }}>
-            <Zap className="w-7 h-7 text-white" />
-            <div className="absolute inset-0 rounded-2xl opacity-50 blur-lg"
-              style={{ background: 'linear-gradient(135deg, hsla(143, 97%, 33%, 1.00), hsl(262 83% 65%))' }} />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-6 shadow-2xl shadow-indigo-500/20 active:scale-95 transition-transform duration-300">
+            <Zap className="w-8 h-8 text-white fill-white/20" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Супер Админ</h1>
+          <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">Супер Админ</h1>
+          <p className="text-slate-400 text-sm font-medium">Системд тавтай морилно уу</p>
         </div>
 
         {/* Card */}
@@ -195,10 +218,11 @@ export default function Login({ onLogin }: LoginProps) {
           </form>
         </div>
 
-        <p className="text-center mt-6 text-xs text-slate-600 animate-fade-in" style={{ animationDelay: '200ms' }}>
-          Powered by{' '}
-          <span className="text-gradient font-semibold">Zevtabs</span>
-        </p>
+        <div className="text-center mt-8 animate-fade-in opacity-50 hover:opacity-100 transition-opacity duration-300" style={{ animationDelay: '300ms' }}>
+          <p className="text-[11px] font-medium tracking-widest uppercase text-slate-500">
+            <span className="text-white font-bold ml-1">Powered by Zevtabs</span>
+          </p>
+        </div>
       </div>
     </div>
   )

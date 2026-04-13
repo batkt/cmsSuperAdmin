@@ -1,5 +1,3 @@
-'use client'
-
 import { useState, useEffect } from 'react'
 import {
   Trash2, Play, Square, Loader2, Server,
@@ -7,7 +5,8 @@ import {
   CheckCircle, XCircle, Edit3, Plus, AlertCircle,
   Activity,
 } from 'lucide-react'
-import { projectApi, userApi } from '@/lib/api-service'
+import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/authStore'
 
 interface ProjectManagementProps {
   isDarkMode: boolean
@@ -26,64 +25,65 @@ interface Project {
 }
 
 const statusConfig = {
-  running:  { label: 'Ажиллаж байгаа',  icon: Activity,     dot: 'bg-emerald-400', card: 'border-emerald-100', badge: 'bg-emerald-50 text-emerald-700' },
-  stopped:  { label: 'Зогссон',  icon: XCircle,      dot: 'bg-slate-400',  card: 'border-slate-100',   badge: 'bg-slate-50 text-slate-600'   },
-  error:    { label: 'Алдаа',    icon: AlertCircle,  dot: 'bg-red-400',    card: 'border-red-100',     badge: 'bg-red-50 text-red-700'       },
-  building: { label: 'Угсарч байна', icon: Loader2,      dot: 'bg-blue-400',   card: 'border-blue-100',    badge: 'bg-blue-50 text-blue-700'     },
+  running: { label: 'Ажиллаж байгаа', icon: Activity, dot: 'bg-emerald-400', card: 'border-emerald-100', badge: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' },
+  stopped: { label: 'Зогссон', icon: XCircle, dot: 'bg-slate-400', card: 'border-slate-100', badge: 'bg-slate-500/10 text-slate-400 border border-slate-500/20' },
+  error: { label: 'Алдаа', icon: AlertCircle, dot: 'bg-red-400', card: 'border-red-100', badge: 'bg-red-500/10 text-red-400 border border-red-500/20' },
+  building: { label: 'Угсарч байна', icon: Loader2, dot: 'bg-blue-400', card: 'border-blue-100', badge: 'bg-blue-500/10 text-blue-400 border border-blue-500/20' },
 }
 
-function SkeletonCard() {
+function SkeletonCard({ isDarkMode }: { isDarkMode: boolean }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 animate-pulse">
+    <div className={`rounded-2xl border p-5 animate-pulse ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
       <div className="flex items-start justify-between mb-3">
-        <div className="h-4 bg-slate-100 rounded w-32" />
-        <div className="h-5 bg-slate-100 rounded-full w-20" />
+        <div className={`h-4 rounded w-32 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`} />
+        <div className={`h-5 rounded-full w-20 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`} />
       </div>
       <div className="space-y-2">
-        <div className="h-3 bg-slate-50 rounded w-24" />
-        <div className="h-3 bg-slate-50 rounded w-20" />
+        <div className={`h-3 rounded w-24 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-50'}`} />
+        <div className={`h-3 rounded w-20 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-50'}`} />
       </div>
-      <div className="mt-4 pt-4 border-t border-slate-50 flex justify-end gap-2">
-        <div className="h-7 bg-slate-100 rounded-lg w-16" />
-        <div className="h-7 bg-slate-100 rounded-lg w-7" />
-        <div className="h-7 bg-slate-100 rounded-lg w-7" />
+      <div className={`mt-4 pt-4 border-t flex justify-end gap-2 ${isDarkMode ? 'border-slate-700' : 'border-slate-50'}`}>
+        <div className={`h-7 rounded-lg w-16 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`} />
+        <div className={`h-7 rounded-lg w-7 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`} />
+        <div className={`h-7 rounded-lg w-7 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`} />
       </div>
     </div>
   )
 }
 
 export default function ProjectManagement({ isDarkMode, onEditProject }: ProjectManagementProps) {
-  const [projects, setProjects]             = useState<Project[]>([])
-  const [isLoading, setIsLoading]           = useState(true)
-  const [error, setError]                   = useState('')
+  const [projects, setProjects] = useState<Project[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
   const [actionInProgress, setActionInProgress] = useState<string | null>(null)
-  const [users, setUsers]                   = useState<{email: string; role: string; bindings: any[]}[]>([])
+  const [users, setUsers] = useState<{ email: string; role: string; bindings: any[] }[]>([])
   const [selectedUserFilter, setSelectedUserFilter] = useState<string>('')
-  const [filterStatus, setFilterStatus]     = useState<string>('all')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const accessToken = useAuthStore(s => s.accessToken)!
 
   useEffect(() => { loadProjects(); loadUsers() }, [])
 
   const loadUsers = async () => {
     try {
-      const response = await userApi.list()
-      const list: any[] = response.data?.users || response.users || response || []
+      const response = await api.listUsers(accessToken)
+      const list: any[] = response.users || []
       const withBindings = await Promise.all(
         list.map(async (u: any) => {
           try {
-            const br = await userApi.getBindings(u.email)
-            return { ...u, bindings: br.data?.bindings || br.bindings || [] }
+            const br = await api.getBindings(accessToken, u.email)
+            return { ...u, bindings: br.bindings || [] }
           } catch { return { ...u, bindings: [] } }
         })
       )
       setUsers(withBindings)
-    } catch {}
+    } catch { }
   }
 
   const loadProjects = async () => {
     setIsLoading(true); setError('')
     try {
-      const response = await projectApi.list()
-      const data: Project[] = response.projects || response.data?.projects || response || []
+      const response = await api.listProjects(accessToken)
+      const data: Project[] = (response.projects as any) || []
       if (Array.isArray(data)) {
         setProjects(data)
       } else { setProjects([]) }
@@ -100,12 +100,12 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
 
   const runningCount = projects.filter(p => p.status === 'running').length
   const stoppedCount = projects.filter(p => p.status === 'stopped').length
-  const errorCount   = projects.filter(p => p.status === 'error').length
+  const errorCount = projects.filter(p => p.status === 'error').length
 
   const deleteProject = async (name: string) => {
     if (!confirm(`"${name}"-г устгах уу? Энэ үйлдлийг буцаах боломжгүй.`)) return
     setActionInProgress(name)
-    try { await projectApi.delete(name); await loadProjects() }
+    try { await api.deleteProject(accessToken, name); await loadProjects() }
     catch (err: any) { setError(err.message) }
     finally { setActionInProgress(null) }
   }
@@ -113,7 +113,7 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
   const generateSite = async (name: string) => {
     setActionInProgress(`${name}-generate`)
     try {
-      await projectApi.generate(name)
+      await api.generateProject(accessToken, name)
       setProjects(ps => ps.map(p => p.name === name ? { ...p, status: 'building' } : p))
     } catch (err: any) { setError(err.message) }
     finally { setActionInProgress(null) }
@@ -122,7 +122,7 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
   const buildProject = async (name: string) => {
     setActionInProgress(`${name}-build`)
     try {
-      await projectApi.build(name)
+      await api.buildProject(accessToken, name)
       setProjects(ps => ps.map(p => p.name === name ? { ...p, status: 'running' } : p))
     } catch (err: any) { setError(err.message) }
     finally { setActionInProgress(null) }
@@ -131,14 +131,14 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
   const stopProject = async (name: string) => {
     setActionInProgress(`${name}-stop`)
     try {
-      await projectApi.stop(name)
+      await api.stopProject(accessToken, name)
       setProjects(ps => ps.map(p => p.name === name ? { ...p, status: 'stopped' } : p))
     } catch (err: any) { setError(err.message) }
     finally { setActionInProgress(null) }
   }
 
   return (
-    <div className={`min-h-screen p-6 ${isDarkMode ? 'bg-[hsl(224_71%_4%)]' : 'bg-[hsl(220_20%_98%)]'}`}>
+    <div className={`min-h-screen p-6 transition-colors duration-300 ${isDarkMode ? 'bg-background' : 'bg-slate-50'}`}>
       {/* Header */}
       <div className="mb-6 flex items-start justify-between animate-slide-in-left">
         <div>
@@ -151,11 +151,10 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
           id="projects-refresh"
           onClick={loadProjects}
           disabled={isLoading}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-200 shadow-sm ${
-            isDarkMode
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-200 shadow-sm ${isDarkMode
               ? 'bg-slate-800 border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-400'
               : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
-          } disabled:opacity-50`}
+            } disabled:opacity-50`}
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           Шинэчлэх
@@ -165,19 +164,18 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
       {/* Stats pills */}
       <div className="flex items-center gap-3 mb-6 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
         {[
-          { label: 'Бүгд',      val: 'all',     count: projects.length, color: isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-white text-slate-700 border border-slate-200' },
-          { label: 'Ажиллаж байгаа',  val: 'running', count: runningCount,    color: 'bg-emerald-50 text-emerald-700' },
-          { label: 'Зогссон',  val: 'stopped', count: stoppedCount,    color: 'bg-slate-100 text-slate-600' },
-          { label: 'Алдаа',    val: 'error',   count: errorCount,      color: 'bg-red-50 text-red-700' },
+          { label: 'Бүгд', val: 'all', count: projects.length, color: isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-white text-slate-700 border border-slate-200' },
+          { label: 'Ажиллаж байгаа', val: 'running', count: runningCount, color: 'bg-emerald-50 text-emerald-700' },
+          { label: 'Зогссон', val: 'stopped', count: stoppedCount, color: 'bg-slate-100 text-slate-600' },
+          { label: 'Алдаа', val: 'error', count: errorCount, color: 'bg-red-50 text-red-700' },
         ].map(f => (
           <button
             key={f.val}
             onClick={() => setFilterStatus(f.val)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
-              filterStatus === f.val
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${filterStatus === f.val
                 ? 'ring-2 ring-indigo-500 ring-offset-1 ' + f.color
                 : f.color + ' opacity-70 hover:opacity-100'
-            }`}
+              }`}
           >
             {f.label}
             <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-600' : 'bg-white/70'}`}>
@@ -190,9 +188,8 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
           <select
             value={selectedUserFilter}
             onChange={e => setSelectedUserFilter(e.target.value)}
-            className={`ml-auto px-3 py-1.5 rounded-xl text-xs border transition-all ${
-              isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
-            }`}
+            className={`ml-auto px-3 py-1.5 rounded-xl text-xs border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+              }`}
           >
             <option value="">Бүх хэрэглэгчид</option>
             {users.filter(u => u.role !== 'superadmin').map(u => (
@@ -214,11 +211,11 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
       {/* Cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 stagger-children">
         {isLoading ? (
-          [...Array(6)].map((_, i) => <SkeletonCard key={i} />)
+          [...Array(6)].map((_, i) => <SkeletonCard key={i} isDarkMode={isDarkMode} />)
         ) : filteredProjects.length === 0 ? (
           <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
-               <Server className={`w-8 h-8 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+              <Server className={`w-8 h-8 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
             </div>
             <p className={`font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Төсөл олдсонгүй</p>
             <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -232,11 +229,10 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
             return (
               <div
                 key={project.name}
-                className={`rounded-2xl border p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
-                  isDarkMode
+                className={`rounded-2xl border p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${isDarkMode
                     ? 'bg-slate-800/80 border-slate-700/80 hover:border-slate-600'
                     : `bg-white ${cfg.card} hover:shadow-slate-100`
-                }`}
+                  }`}
               >
                 {/* Card top */}
                 <div className="flex items-start justify-between mb-3">
@@ -246,7 +242,8 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
                       {project.name}
                     </h3>
                   </div>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${cfg.badge}`}>
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${isDarkMode ? cfg.badge : cfg.badge.replace('-500/11', '-50').replace('-400', '-700').replace('-500/20', '-200')
+                    }`}>
                     {cfg.label}
                   </span>
                 </div>
