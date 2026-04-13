@@ -4,6 +4,9 @@
 export { default as Sidebar } from './Sidebar'
 export { default as Dashboard } from './Dashboard'
 
+// Admin
+export { default as AdminDashboard } from './AdminDashboard'
+
 // User & Auth
 export { default as Login } from './Login'
 export { default as UserManagement } from './UserManagement'

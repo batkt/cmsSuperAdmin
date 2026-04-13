@@ -1,7 +1,7 @@
 // API Service for CMS Backend Integration
 // Base URL: http://202.179.6.77:4000/api/v2/core
 
-const BASE_URL = 'http://202.179.6.77:4000/api/v2/core'
+const BASE_URL = typeof window !== 'undefined' ? '/api/proxy/api/v2/core' : 'http://202.179.6.77:4000/api/v2/core'
 
 // Get auth token from localStorage
 const getToken = () => {
@@ -55,7 +55,7 @@ async function fetchAPI(endpoint: string, options?: RequestInit, compress: boole
       const compressed = await compressData(data)
       body = compressed
       headers['Content-Encoding'] = 'gzip'
-      headers['Content-Type'] = 'application/gzip'
+      headers['Content-Type'] = 'application/json'
     } catch (e) {
       console.warn('Compression failed, sending uncompressed:', e)
     }
@@ -283,11 +283,23 @@ export const DesignAPI = {
     fetchAPI(`/designs/${name}`),
 
   // POST /api/designs - Create or update design (upsert) with compression
-  saveDesign: (design: WebsiteDesign) =>
-    fetchAPICompressed('/designs', {
+  saveDesign: (design: WebsiteDesign) => {
+    const projectId = resolveProjectContext(design.projectName, true)
+    const requestHeaders: Record<string, string> = {}
+    if (isAscii(projectId)) {
+      requestHeaders['x-project-id'] = projectId
+      requestHeaders['x-project-name'] = projectId
+    }
+
+    return fetchAPICompressed(`/designs?projectId=${encodeURIComponent(projectId)}`, {
       method: 'POST',
-      body: JSON.stringify(design),
-    }),
+      headers: requestHeaders,
+      body: JSON.stringify({
+        ...design,
+        projectName: projectId,
+      }),
+    })
+  },
 
   // PATCH /api/designs/:name - Update specific design
   updateDesign: (name: string, updates: Partial<WebsiteDesign>) =>

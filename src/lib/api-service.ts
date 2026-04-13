@@ -1,10 +1,13 @@
 // API Service for Server Control Backend
 // Based on SUPERADMIN.md specification
 
-const getApiUrl = () => localStorage.getItem('apiUrl') || 'http://202.179.6.77:4000'
+const getApiUrl = () => {
+  if (typeof window !== 'undefined') return '/api/proxy'
+  return localStorage.getItem('apiUrl') || 'http://202.179.6.77:4000'
+}
 const getToken = () => localStorage.getItem('superadminToken') || localStorage.getItem('token') || ''
 const isLatin1Safe = (value: string) => /^[\x00-\xFF]*$/.test(value)
-const getComponentApiBase = () => '/api/proxy/api/v2/core/components'
+const getComponentApiBase = () => `${getApiUrl()}/api/v2/core/components`
 
 type ComponentPayload = {
   componentType?: string
@@ -18,25 +21,20 @@ const headers = (includeProject = false, projectName?: string) => {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${getToken()}`,
   }
-  if (includeProject && projectName) {
-    h['x-project-id'] = projectName
+  
+  if (projectName) {
+    const normalized = projectName.trim()
+    if (isLatin1Safe(normalized)) {
+      h['x-project-id'] = normalized
+      h['x-project-name'] = normalized
+    }
   }
+  
   return h
 }
 
 const componentHeaders = (projectName: string) => {
-  const normalizedProject = projectName?.trim()
-  if (!normalizedProject) {
-    throw new Error('Project context is required for component endpoints')
-  }
-
-  const baseHeaders = headers(false)
-  // Browser fetch rejects non ISO-8859-1 header values, so only attach when safe.
-  if (isLatin1Safe(normalizedProject)) {
-    baseHeaders['x-project-id'] = normalizedProject
-    baseHeaders['x-project-name'] = normalizedProject
-  }
-  return baseHeaders
+  return headers(true, projectName)
 }
 
 const ensureComponentRequiredProps = (payload: ComponentPayload): ComponentPayload => {
@@ -201,6 +199,25 @@ export const userApi = {
     const response = await fetch(`${getApiUrl()}/api/v2/core/users/${encodeURIComponent(email)}/bindings/${projectName}`, {
       method: 'DELETE',
       headers: headers(),
+    })
+    return handleResponse(response)
+  },
+
+  // Delete user
+  delete: async (email: string) => {
+    const response = await fetch(`${getApiUrl()}/api/v2/core/users/${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+      headers: headers(),
+    })
+    return handleResponse(response)
+  },
+
+  // Update user
+  update: async (email: string, data: { password?: string; role?: string }) => {
+    const response = await fetch(`${getApiUrl()}/api/v2/core/users/${encodeURIComponent(email)}`, {
+      method: 'PATCH',
+      headers: headers(),
+      body: JSON.stringify(data),
     })
     return handleResponse(response)
   },

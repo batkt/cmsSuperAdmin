@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, memo } from 'react'
-import { GripVertical, Maximize2, X, Type, Image as ImageIcon, Square } from 'lucide-react'
+import { GripVertical, Maximize2, X, Type, Image as ImageIcon, Square, Copy } from 'lucide-react'
 
 export interface SectionType {
   id: string
@@ -16,6 +16,7 @@ interface DraggableSectionProps {
   section: SectionType
   onUpdate: (id: string, updates: Partial<SectionType>) => void
   onDelete: (id: string) => void
+  onDuplicate?: (section: SectionType) => void
   containerRef?: React.RefObject<HTMLDivElement>
   isPreview?: boolean
 }
@@ -24,6 +25,7 @@ function DraggableSection({
   section, 
   onUpdate, 
   onDelete, 
+  onDuplicate,
   containerRef,
   isPreview = false 
 }: DraggableSectionProps) {
@@ -213,6 +215,20 @@ function DraggableSection({
             <Maximize2 className="w-3 h-3" />
           </div>
 
+          {/* Duplicate Button */}
+          {onDuplicate && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onDuplicate(section)
+              }}
+              className="absolute -bottom-3 -left-3 w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-purple-600"
+              title="Хуулбарлах"
+            >
+              <Copy className="w-3 h-3" />
+            </button>
+          )}
+
           {/* Delete Button */}
           <button
             onClick={(e) => {
@@ -220,6 +236,7 @@ function DraggableSection({
               onDelete(section.id)
             }}
             className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600"
+            title="Устгах"
           >
             <X className="w-3 h-3" />
           </button>
@@ -257,7 +274,7 @@ interface SectionContainerProps {
 export function SectionContainer({ children, className = '', style }: SectionContainerProps) {
   return (
     <div 
-      className={`relative min-h-[400px] min-w-[300px] bg-white rounded-xl border-2 border-dashed border-gray-300 p-4 ${className}`}
+      className={`relative min-h-[300px] w-full bg-white rounded-xl border-2 border-dashed border-gray-300 p-4 ${className}`}
       style={style}
     >
       {children}

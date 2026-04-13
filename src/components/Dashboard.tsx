@@ -1,15 +1,15 @@
 'use client'
 
-import { useState, useEffect, createContext, useContext } from 'react'
-import { LogOut } from 'lucide-react'
+import { useState, useEffect, useCallback, createContext, useContext } from 'react'
+import { LogOut, Zap } from 'lucide-react'
 import {
   Sidebar,
   UserManagement,
   WebsiteBuilder,
-  TemplateLibrary,
   ProjectManagement,
   Login,
 } from './index'
+import AdminDashboard from './AdminDashboard'
 
 // API Context for sharing token and API URL across components
 interface ApiContextType {
@@ -21,15 +21,22 @@ interface ApiContextType {
 export const ApiContext = createContext<ApiContextType>({
   token: null,
   apiUrl: 'http://202.179.6.77:4000',
-  logout: () => {},
+  logout: () => { },
 })
 
 export const useApi = () => useContext(ApiContext)
 
-type TabType = 'users' | 'builder' | 'templates' | 'projects'
+type TabType = 'dashboard' | 'users' | 'builder' | 'projects'
+
+const PAGE_TITLES: Record<TabType, string> = {
+  dashboard: 'Хянах самбар',
+  projects: 'Төслийн удирдлага',
+  users: 'Хэрэглэгчийн удирдлага',
+  builder: 'Вэб бүтээгч',
+}
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<TabType>('projects')
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [websiteName, setWebsiteName] = useState('My Project')
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
@@ -39,22 +46,15 @@ export default function Dashboard() {
   const [apiUrl, setApiUrl] = useState('http://202.179.6.77:4000')
   const [isLoading, setIsLoading] = useState(true)
 
-  // Check for existing session on mount
   useEffect(() => {
     const savedToken = localStorage.getItem('superadminToken')
     const savedUser = localStorage.getItem('superadminUser')
     const savedApiUrl = localStorage.getItem('apiUrl')
     if (savedToken) {
       setToken(savedToken)
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser))
-        } catch {}
-      }
+      if (savedUser) { try { setUser(JSON.parse(savedUser)) } catch { } }
     }
-    if (savedApiUrl) {
-      setApiUrl(savedApiUrl)
-    }
+    if (savedApiUrl) setApiUrl(savedApiUrl)
     setIsLoading(false)
   }, [])
 
@@ -79,40 +79,57 @@ export default function Dashboard() {
     setActiveTab('builder')
   }
 
-  const handleEditProject = (projectName: string) => {
+  const handleEditProject = useCallback((projectName: string) => {
     setWebsiteName(projectName)
     setEditingProjectName(projectName)
-    // Store in localStorage so WebsiteBuilder can load it
     localStorage.setItem('currentProject', projectName)
     localStorage.setItem('projectName', projectName)
     setActiveTab('builder')
-  }
+  }, [])
 
-  // Show loading while checking auth
+  useEffect(() => {
+    const handleEditProjectEvent = (event: CustomEvent) => {
+      const projectName = event.detail
+      if (projectName) handleEditProject(projectName)
+    }
+    window.addEventListener('editProject' as any, handleEditProjectEvent)
+    return () => window.removeEventListener('editProject' as any, handleEditProjectEvent)
+  }, [handleEditProject])
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-transparent">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-black">Ачаалж байна...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#070b1a]">
+        <div className="flex flex-col items-center gap-4">
+          <div
+            className="w-12 h-12 rounded-2xl flex items-center justify-center animate-pulse"
+            style={{ background: 'linear-gradient(135deg, hsl(238 84% 67%), hsl(262 83% 65%))' }}
+          >
+            <Zap className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex gap-1">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce"
+                style={{ animationDelay: `${i * 150}ms` }} />
+            ))}
+          </div>
         </div>
       </div>
     )
   }
 
-  // If not logged in, show login
-  if (!token) {
-    return <Login onLogin={handleLogin} />
-  }
+  if (!token) return <Login onLogin={handleLogin} />
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return <AdminDashboard />
       case 'users':
         return <UserManagement isDarkMode={isDarkMode} />
       case 'builder':
         return (
-          <WebsiteBuilder 
-            websiteName={websiteName} 
+          <WebsiteBuilder
+            key={editingProjectName || 'new-builder'}
+            websiteName={websiteName}
             isDarkMode={isDarkMode}
             template={selectedTemplate}
             apiUrl={apiUrl}
@@ -120,51 +137,63 @@ export default function Dashboard() {
             initialProjectName={editingProjectName}
           />
         )
-      case 'templates':
-        return <TemplateLibrary isDarkMode={isDarkMode} onUseTemplate={handleUseTemplate} />
       case 'projects':
         return <ProjectManagement isDarkMode={isDarkMode} onEditProject={handleEditProject} />
       default:
-        return (
-          <div className={`p-8 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white/90 backdrop-blur text-gray-900'}`}>
-            <h1 className="text-3xl font-bold mb-6">Хянах самбар</h1>
-            <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Тавтай морил, {user?.email || 'Супер Админ'}</p>
-          </div>
-        )
+        return <AdminDashboard />
     }
   }
 
   return (
     <ApiContext.Provider value={{ token, apiUrl, logout: handleLogout }}>
-      <div className={`flex h-screen ${isDarkMode ? 'dark bg-gray-900' : 'bg-white'}`}>
-        <Sidebar 
-          activeTab={activeTab} 
+      <div className={`flex h-screen overflow-hidden ${isDarkMode ? 'dark' : ''}`}
+        style={{ background: isDarkMode ? 'hsl(224 71% 4%)' : 'hsl(220 20% 98%)' }}>
+        <Sidebar
+          activeTab={activeTab}
           setActiveTab={(tab) => setActiveTab(tab as TabType)}
-          websiteName={websiteName}
-          setWebsiteName={setWebsiteName}
           isDarkMode={isDarkMode}
           setIsDarkMode={setIsDarkMode}
           user={user}
         />
-        <div className="flex-1 overflow-auto flex flex-col">
-          {/* Header with logout */}
-          <div className={`flex justify-between items-center px-6 py-4  ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
-           <div></div>
+
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Top bar */}
+          <header
+            className="flex items-center justify-between px-6 py-3 shrink-0"
+            style={{
+              background: isDarkMode ? 'hsl(224 50% 7%)' : 'white',
+              borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid hsl(220 13% 91%)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}
+          >
+            <div>
+              <h2 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                {/* {PAGE_TITLES[activeTab]} */}
+              </h2>
+              <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                {activeTab === 'builder' && editingProjectName
+                  ? `Засаж байна: ${editingProjectName}`
+                  : ''}
+              </p>
+            </div>
+
             <button
+              id="topbar-logout"
               onClick={handleLogout}
-              className={`flex items-end gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isDarkMode 
-                  ? 'text-red-400 hover:bg-red-900/30' 
-                  : 'text-red-600 hover:bg-red-50'
-              }`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${isDarkMode
+                ? 'text-red-400 hover:bg-red-900/20'
+                : 'text-red-500 hover:bg-red-50'
+                }`}
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
               Гарах
             </button>
-          </div>
-          <div className="flex-1 overflow-auto">
+          </header>
+
+          {/* Content */}
+          <main className="flex-1 overflow-auto">
             {renderContent()}
-          </div>
+          </main>
         </div>
       </div>
     </ApiContext.Provider>
