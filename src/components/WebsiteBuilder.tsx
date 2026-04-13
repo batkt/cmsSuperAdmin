@@ -1011,7 +1011,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
         domain: `${cleanProjectName.toLowerCase().replace(/\s+/g, '-')}.localhost`,
         theme: {
           primaryColor: getColorValue(defaultStyles.buttonBackgroundColor) || '#2563eb',
-          secondaryColor: getColorValue(defaultStyles.slate[900]) || '#0f172a',
+          secondaryColor: getColorValue(colorPalette.slate[900]) || '#0f172a',
           fontFamily: 'Inter',
           darkMode: isDarkMode,
           customTokens: {
