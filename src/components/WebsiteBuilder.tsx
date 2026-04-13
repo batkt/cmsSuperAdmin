@@ -988,6 +988,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
       // 1. Save all component instances
       const instances = pages.flatMap(page => 
         page.components.map((comp, idx) => ({
+          localId: comp.id,
           instanceId: comp.id,
           componentType: comp.type,
           pageRoute: page.path,
@@ -998,12 +999,33 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
         }))
       )
 
-      await Promise.all(instances.map(instance => {
-        if (instance._isExisting) {
-          return componentApi.patch(cleanProjectName, instance.instanceId, instance)
+      const savedComponentIds: string[] = []
+
+      await Promise.all(instances.map(async (instance) => {
+        try {
+          if (instance._isExisting) {
+             await componentApi.patch(cleanProjectName, instance.instanceId, instance)
+          } else {
+             await componentApi.create(cleanProjectName, instance)
+          }
+          savedComponentIds.push(instance.localId)
+        } catch (err: any) {
+          if (err.message?.includes('E11000') || err.message?.includes('duplicate key')) {
+            console.warn(`Component ${instance.instanceId} already exists, marking as existing.`, err)
+            savedComponentIds.push(instance.localId)
+            return
+          }
+          throw err
         }
-        return componentApi.create(cleanProjectName, instance)
       }))
+
+      // Mark successful (or already existing) components as existing
+      setPages(prev => prev.map(p => ({
+        ...p,
+        components: p.components.map(c => 
+          savedComponentIds.includes(c.id) ? { ...c, _isExisting: true } : c
+        )
+      })))
 
       // 2. Save the overall Design structure
       const design = {

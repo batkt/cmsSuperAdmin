@@ -67,13 +67,15 @@ const ensureComponentRequiredProps = (payload: ComponentPayload): ComponentPaylo
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
+    const msg = error.data?.error || error.error || error.message || `HTTP ${response.status}: ${response.statusText}`
+    
     if (response.status === 401) {
-      throw new Error(error.message || 'Unauthorized: missing, expired, or invalid access token')
+      throw new Error(msg || 'Unauthorized: missing, expired, or invalid access token')
     }
     if (response.status === 403) {
-      throw new Error(error.message || 'Forbidden: insufficient route role or project role')
+      throw new Error(msg || 'Forbidden: insufficient route role or project role')
     }
-    throw new Error(error.message || `HTTP ${response.status}: ${response.statusText}`)
+    throw new Error(msg)
   }
   return response.json()
 }
