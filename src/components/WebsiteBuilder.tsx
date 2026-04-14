@@ -25,7 +25,7 @@ import {
   ArrowUp, Grid3X3, Briefcase, MessageSquare, X, Check, Edit3, FileText,
   Maximize2, ChevronDown, ChevronRight, Terminal, Search, MoreHorizontal,
   Image as ImageIcon, GripHorizontal, Video as VideoIcon, Newspaper, Home,
-  CheckCircle2, Loader2,
+  CheckCircle2, Loader2, Eye, EyeOff,
 } from 'lucide-react'
 import { CMSAPI } from '@/lib/cms-api'
 import { componentApi, projectApi } from '@/lib/api-service'
@@ -369,6 +369,7 @@ interface DraggableComponentProps {
   isSelected: boolean
   onSelect: (id: string) => void
   isDarkMode: boolean
+  isPreview?: boolean
 }
 
 const defaultStyles: ComponentStyles = {
@@ -409,7 +410,8 @@ function DraggableComponent({
   onUpdateStyle,
   isSelected,
   onSelect,
-  isDarkMode
+  isDarkMode,
+  isPreview = false
 }: DraggableComponentProps) {
   const {
     attributes,
@@ -533,7 +535,7 @@ function DraggableComponent({
       }
 
       return (
-        <SectionContainer style={componentStyle}>
+        <SectionContainer style={componentStyle} isPreview={isPreview}>
           {sections.map((section) => (
             <DraggableSection
               key={section.id}
@@ -541,13 +543,16 @@ function DraggableComponent({
               onUpdate={handleSectionUpdate}
               onDelete={handleSectionDelete}
               onDuplicate={handleSectionDuplicate}
+              isPreview={isPreview}
             />
           ))}
-          <div className="absolute bottom-4 left-4 flex gap-2 flex-wrap opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => handleAddSection('text')} className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 flex items-center gap-1"><Type className="w-3 h-3" />Текст</button>
-            <button onClick={() => handleAddSection('image')} className="px-3 py-1.5 bg-emerald-500 text-white text-xs rounded-lg hover:bg-emerald-600 flex items-center gap-1"><ImageIcon className="w-3 h-3" />Зураг</button>
-            <button onClick={() => handleAddSection('button')} className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded-lg hover:bg-purple-600 flex items-center gap-1"><Square className="w-3 h-3" />Товч</button>
-          </div>
+          {!isPreview && (
+            <div className="absolute bottom-4 left-4 flex gap-2 flex-wrap opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => handleAddSection('text')} className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 flex items-center gap-1"><Type className="w-3 h-3" />Текст</button>
+              <button onClick={() => handleAddSection('image')} className="px-3 py-1.5 bg-emerald-500 text-white text-xs rounded-lg hover:bg-emerald-600 flex items-center gap-1"><ImageIcon className="w-3 h-3" />Зураг</button>
+              <button onClick={() => handleAddSection('button')} className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded-lg hover:bg-purple-600 flex items-center gap-1"><Square className="w-3 h-3" />Товч</button>
+            </div>
+          )}
         </SectionContainer>
       )
     }
@@ -589,34 +594,38 @@ function DraggableComponent({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={isPreview ? undefined : setNodeRef}
       style={style}
-      className={`group relative ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
-      onClick={() => onSelect(component.id)}
+      className={`group relative ${!isPreview && isSelected ? 'ring-2 ring-blue-500' : ''}`}
+      onClick={() => !isPreview && onSelect(component.id)}
     >
-      <div className={`border-2 rounded-lg transition-colors overflow-hidden ${isSelected ? 'border-blue-500 shadow-lg' : 'border-dashed border-gray-300 hover:border-blue-400'} relative`}
+      <div className={`${isPreview ? 'border-none' : `border-2 rounded-lg transition-colors overflow-hidden ${isSelected ? 'border-blue-500 shadow-lg' : 'border-dashed border-gray-300 hover:border-blue-400'}`} relative`}
         style={{
           height: component.styles.height || 'auto',
           minHeight: component.styles.minHeight || 'auto'
         }}
       >
-        <div className="flex justify-between items-start mb-2 opacity-0 group-hover:opacity-100 transition-opacity absolute -top-3 -right-3 z-50 space-x-1">
-          <button {...attributes} {...listeners} className="p-2 bg-white shadow-md hover:bg-gray-100 rounded-full text-xs font-bold border border-gray-100">
-            <GripVertical className="w-4 h-4 text-gray-600" />
-          </button>
-          <button onClick={() => onDelete(component.id)} className="p-2 bg-white shadow-md hover:bg-red-50 rounded-full text-red-600 text-xs font-bold border border-gray-100">
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
+        {!isPreview && (
+          <div className="flex justify-between items-start mb-2 opacity-0 group-hover:opacity-100 transition-opacity absolute -top-3 -right-3 z-50 space-x-1">
+            <button {...attributes} {...listeners} className="p-2 bg-white shadow-md hover:bg-gray-100 rounded-full text-xs font-bold border border-gray-100">
+              <GripVertical className="w-4 h-4 text-gray-600" />
+            </button>
+            <button onClick={() => onDelete(component.id)} className="p-2 bg-white shadow-md hover:bg-red-50 rounded-full text-red-600 text-xs font-bold border border-gray-100">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         
         {renderComponent()}
 
         {/* Height Resize Handle */}
-        <div
-          onMouseDown={handleResizeStart}
-          className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-1.5 bg-blue-500/20 rounded-full cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-500 z-50"
-          title="Чирж өндрийг өөрчлөх"
-        />
+        {!isPreview && (
+          <div
+            onMouseDown={handleResizeStart}
+            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-1.5 bg-blue-500/20 rounded-full cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-500 z-50"
+            title="Чирж өндрийг өөрчлөх"
+          />
+        )}
       </div>
     </div>
   )
@@ -636,6 +645,7 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
   const [activePageId, setActivePageId] = useState<string>('home')
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null)
+  const [isPreview, setIsPreview] = useState(false)
   
   const [projectName, setProjectName] = useState(initialProjectName || 'Нийтлэх')
   const [isAddingPage, setIsAddingPage] = useState(false)
@@ -1152,6 +1162,22 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
 
         <div className="flex items-center gap-2">
           <button 
+            onClick={() => {
+              setIsPreview(!isPreview)
+              setSelectedComponentId(null)
+              setEditingComponent(null)
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-lg ${
+              isPreview 
+                ? 'bg-amber-500 text-white shadow-amber-500/20 hover:bg-amber-600' 
+                : dm ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {isPreview ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            {isPreview ? 'Засах' : 'Урьдчилан харах'}
+          </button>
+
+          <button 
             onClick={handleSave} 
             disabled={isSaving}
             className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 flex items-center gap-2"
@@ -1173,28 +1199,30 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
       <div className="flex flex-1 gap-4 overflow-hidden">
         
         {/* Left: Palette */}
-        <aside className={`w-64 shrink-0 rounded-2xl flex flex-col p-4 shadow-sm ${dm ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200'}`}>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Бүрэлдэхүүн хэсэг</p>
-          <div className="grid grid-cols-1 gap-2">
-            {availableComponents.map(c => (
-              <button 
-                key={c.type}
-                onClick={() => addComponent(c.type)}
-                className={`flex items-center gap-3 p-3 rounded-xl text-sm font-medium transition-all ${dm ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-50 text-slate-600 border border-transparent hover:border-slate-100'}`}
-              >
-                <c.icon className="w-4 h-4 text-slate-400" />
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </aside>
+        {!isPreview && (
+          <aside className={`w-64 shrink-0 rounded-2xl flex flex-col p-4 shadow-sm ${dm ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200'}`}>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Бүрэлдэхүүн хэсэг</p>
+            <div className="grid grid-cols-1 gap-2">
+              {availableComponents.map(c => (
+                <button 
+                  key={c.type}
+                  onClick={() => addComponent(c.type)}
+                  className={`flex items-center gap-3 p-3 rounded-xl text-sm font-medium transition-all ${dm ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-50 text-slate-600 border border-transparent hover:border-slate-100'}`}
+                >
+                  <c.icon className="w-4 h-4 text-slate-400" />
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </aside>
+        )}
 
         {/* Center: Canvas */}
-        <main className="flex-1 overflow-auto rounded-3xl bg-white shadow-2xl shadow-indigo-500/5 relative group p-8">
-           <div className="max-w-5xl mx-auto min-h-full">
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                <SortableContext items={activePage.components} strategy={verticalListSortingStrategy}>
-                  {activePage.components.map(comp => (
+        <main className={`flex-1 overflow-auto rounded-3xl bg-white shadow-2xl shadow-indigo-500/5 relative group ${isPreview ? 'p-0' : 'p-8'}`}>
+           <div className={`${isPreview ? 'max-w-none' : 'max-w-5xl'} mx-auto min-h-full transition-all duration-300`}>
+              {isPreview ? (
+                <div>
+                   {activePage.components.map(comp => (
                     <DraggableComponent 
                       key={comp.id}
                       component={comp}
@@ -1202,13 +1230,33 @@ export default function WebsiteBuilder({ websiteName, isDarkMode, template, apiU
                       onDelete={deleteComponent}
                       onUpdateContent={handleUpdateContent}
                       onUpdateStyle={handleUpdateStyle}
-                      isSelected={selectedComponentId === comp.id}
-                      onSelect={setSelectedComponentId}
+                      isSelected={false}
+                      onSelect={() => {}}
                       isDarkMode={isDarkMode}
+                      isPreview={true}
                     />
                   ))}
-                </SortableContext>
-              </DndContext>
+                </div>
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                  <SortableContext items={activePage.components} strategy={verticalListSortingStrategy}>
+                    {activePage.components.map(comp => (
+                      <DraggableComponent 
+                        key={comp.id}
+                        component={comp}
+                        onEdit={editComponent}
+                        onDelete={deleteComponent}
+                        onUpdateContent={handleUpdateContent}
+                        onUpdateStyle={handleUpdateStyle}
+                        isSelected={selectedComponentId === comp.id}
+                        onSelect={setSelectedComponentId}
+                        isDarkMode={isDarkMode}
+                        isPreview={false}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              )}
               
               {activePage.components.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-32 text-slate-300">

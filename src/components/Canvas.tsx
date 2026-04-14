@@ -488,9 +488,36 @@ function CanvasInner({ isDarkMode }: { isDarkMode: boolean }) {
                 <GripVertical className="w-3.5 h-3.5" />
               </button>
             </div>
+            <button
+              onClick={() => {
+                if (!selectedProject) return toast.error("Төсөл сонгоно уу");
+                const project = projectsQuery.data?.projects?.find(p => p.name === selectedProject);
+                if (project?.port) {
+                  window.open(`http://202.179.6.77:${project.port}`, "_blank");
+                } else {
+                  toast.error("Төсөл ажиллаагүй байна (Порт олдсонгүй)");
+                }
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'}`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              Урьдчилан харах
+            </button>
             <div className={`h-4 w-px ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
-            <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
-
+            <button 
+              onClick={() => {
+                if (!selectedProject) return toast.error("Төсөл сонгоно уу");
+                const toastId = toast.loading("Нийтлэж байна...");
+                api.buildProject(accessToken, selectedProject)
+                  .then(() => {
+                    toast.success("Амжилттай нийтлэгдлээ", { id: toastId });
+                    qc.invalidateQueries({ queryKey: ["projects"] });
+                  })
+                  .catch(err => toast.error("Нийтлэхэд алдаа гарлаа: " + err.message, { id: toastId }));
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+            >
+              <Rocket className="w-3.5 h-3.5" />
               Нийтлэх
             </button>
           </div>

@@ -131,38 +131,39 @@ function DraggableSection({
       case 'text':
         return {
           ...baseStyle,
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          border: '2px dashed #3b82f6',
+          backgroundColor: isPreview ? 'transparent' : 'rgba(59, 130, 246, 0.1)',
+          border: isPreview ? 'none' : '2px dashed #3b82f6',
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: '14px',
-          color: '#3b82f6',
+          color: isPreview ? 'inherit' : '#3b82f6',
         }
       case 'image':
         return {
           ...baseStyle,
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          border: '2px dashed #10b981',
+          backgroundColor: isPreview ? 'transparent' : 'rgba(16, 185, 129, 0.1)',
+          border: isPreview ? 'none' : '2px dashed #10b981',
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: '14px',
-          color: '#10b981',
+          color: isPreview ? 'inherit' : '#10b981',
         }
       case 'button':
         return {
           ...baseStyle,
-          backgroundColor: 'rgba(139, 92, 246, 0.1)',
-          border: '2px dashed #8b5cf6',
-          borderRadius: '8px',
+          backgroundColor: isPreview ? (section.style?.backgroundColor || '#8b5cf6') : 'rgba(139, 92, 246, 0.1)',
+          border: isPreview ? 'none' : '2px dashed #8b5cf6',
+          borderRadius: section.style?.borderRadius || '8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: '14px',
-          color: '#8b5cf6',
+          color: isPreview ? (section.style?.color || 'white') : '#8b5cf6',
+          boxShadow: isPreview ? '0 4px 12px rgba(139, 92, 246, 0.3)' : 'none',
         }
       default:
         return {
@@ -188,12 +189,24 @@ function DraggableSection({
       onMouseLeave={() => setShowControls(false)}
     >
       {/* Section Content */}
-      <div className="flex flex-col items-center gap-1">
-        {getSectionIcon()}
-        <span className="text-xs font-medium">{getSectionLabel()}</span>
-        <span className="text-[10px] opacity-60">
-          {Math.round(section.size.width)}×{Math.round(section.size.height)}
-        </span>
+      <div className="flex flex-col items-center gap-1 w-full h-full justify-center">
+        {isPreview ? (
+          section.type === 'text' ? (
+            <div className="w-full text-center px-2">{section.content || 'Текст оруулах'}</div>
+          ) : section.type === 'button' ? (
+            <div className="font-bold">{section.content || 'Товчлуур'}</div>
+          ) : section.type === 'image' ? (
+             section.content ? <img src={section.content} alt="" className="w-full h-full object-cover rounded-lg" /> : <div className="text-xs opacity-40">Зураггүй</div>
+          ) : null
+        ) : (
+          <>
+            {getSectionIcon()}
+            <span className="text-xs font-medium">{getSectionLabel()}</span>
+            <span className="text-[10px] opacity-60">
+              {Math.round(section.size.width)}×{Math.round(section.size.height)}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Controls - Only show on hover and not in preview mode */}
@@ -269,12 +282,13 @@ interface SectionContainerProps {
   children: React.ReactNode
   className?: string
   style?: React.CSSProperties
+  isPreview?: boolean
 }
 
-export function SectionContainer({ children, className = '', style }: SectionContainerProps) {
+export function SectionContainer({ children, className = '', style, isPreview = false }: SectionContainerProps) {
   return (
     <div 
-      className={`relative min-h-[300px] w-full bg-white rounded-xl border-2 border-dashed border-gray-300 p-4 ${className}`}
+      className={`relative min-h-[300px] w-full ${isPreview ? '' : 'bg-white rounded-xl border-2 border-dashed border-gray-300 p-4'} ${className}`}
       style={style}
     >
       {children}
