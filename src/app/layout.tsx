@@ -5,7 +5,7 @@ import { Providers } from '@/components/Providers'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Website Builder Admin',
+  title: 'SuperADMIN',
   description: 'Admin panel for website builder with drag and drop functionality',
 }
 
