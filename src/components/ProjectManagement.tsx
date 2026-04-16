@@ -147,18 +147,43 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
             CMS төслүүдээ удирдах болон байршуулах
           </p>
         </div>
-        <button
-          id="projects-refresh"
-          onClick={loadProjects}
-          disabled={isLoading}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-200 shadow-sm ${isDarkMode
-              ? 'bg-slate-800 border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-400'
-              : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
-            } disabled:opacity-50`}
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Шинэчлэх
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              const name = prompt('Оруулах төслийн нэрийг бичнэ үү (жишээ нь: my-new-project):');
+              if (!name) return;
+              setIsLoading(true);
+              try {
+                await api.generateProject(accessToken, name);
+                await loadProjects();
+              } catch (err: any) {
+                setError(err.message);
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+            disabled={isLoading}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 shadow-lg shadow-indigo-500/20 ${isDarkMode
+                ? 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500'
+                : 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700'
+              } disabled:opacity-50`}
+          >
+            <Plus className="w-4 h-4" />
+            Шинэ төсөл
+          </button>
+          <button
+            id="projects-refresh"
+            onClick={loadProjects}
+            disabled={isLoading}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-200 shadow-sm ${isDarkMode
+                ? 'bg-slate-800 border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-400'
+                : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+              } disabled:opacity-50`}
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Шинэчлэх
+          </button>
+        </div>
       </div>
 
       {/* Stats pills */}

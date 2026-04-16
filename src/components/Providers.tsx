@@ -48,8 +48,23 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#070b1a] text-slate-300">
-        <div className="animate-pulse">Loading session…</div>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#070b1a] text-slate-300">
+        <div className="relative flex items-center justify-center">
+          <div className="h-16 w-16 rounded-full border-t-2 border-b-2 border-indigo-500 animate-spin"></div>
+          <div className="absolute h-10 w-10 rounded-full border-r-2 border-l-2 border-indigo-400/50 animate-spin-slow"></div>
+        </div>
+        <div className="mt-8 text-sm font-medium tracking-widest text-indigo-400/80 uppercase animate-pulse">
+          Loading session
+        </div>
+        <style jsx>{`
+          @keyframes spin-slow {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+          }
+          .animate-spin-slow {
+            animation: spin-slow 3s linear infinite;
+          }
+        `}</style>
       </div>
     );
   }

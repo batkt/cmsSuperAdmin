@@ -503,8 +503,8 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
     const type = block.componentType
     const common = (
       <div className="space-y-3">
-        {sectionHeader('Theme')}
-        <PropInput label="Theme" value={p.theme} onChange={v => set('theme', v)} type="select" options={THEME_OPTS} />
+        {sectionHeader('Загвар')}
+        <PropInput label="Загвар" value={p.theme} onChange={v => set('theme', v)} type="select" options={THEME_OPTS} />
       </div>
     )
 
@@ -513,9 +513,9 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
-              <PropInput label="Site Title" value={p.title} onChange={v => set('title', v)} />
-              <PropInput label="Sticky" value={p.sticky} onChange={v => set('sticky', v)} type="toggle" />
+              {sectionHeader('Агуулга')}
+              <PropInput label="Сайтын гарчиг" value={p.title} onChange={v => set('title', v)} />
+              <PropInput label="Наалттай" value={p.sticky} onChange={v => set('sticky', v)} type="toggle" />
               <PropInput label="Top Offset" value={p.topOffset} onChange={v => set('topOffset', v)} />
             </div>
             {common}
@@ -525,11 +525,11 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
-              <PropInput label="Title" value={p.title} onChange={v => set('title', v)} />
-              <PropInput label="Subtitle" value={p.subtitle} onChange={v => set('subtitle', v)} type="textarea" />
-              <PropInput label="Alignment" value={p.align} onChange={v => set('align', v)} type="select" options={ALIGN_OPTS} />
-              <PropInput label="Spacing" value={p.spacing} onChange={v => set('spacing', v)} type="select" options={SPACING_OPTS} />
+              {sectionHeader('Агуулга')}
+              <PropInput label="Гарчиг" value={p.title} onChange={v => set('title', v)} />
+              <PropInput label="Дэд гарчиг" value={p.subtitle} onChange={v => set('subtitle', v)} type="textarea" />
+              <PropInput label="Зэрэгцүүлэлт" value={p.align} onChange={v => set('align', v)} type="select" options={ALIGN_OPTS} />
+              <PropInput label="Зай (Padding)" value={p.spacing} onChange={v => set('spacing', v)} type="select" options={SPACING_OPTS} />
             </div>
             {common}
           </div>
@@ -538,10 +538,10 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
-              <PropInput label="Title" value={p.title} onChange={v => set('title', v)} />
-              <PropInput label="Description" value={p.description} onChange={v => set('description', v)} type="textarea" />
-              <PropInput label="Alignment" value={p.align} onChange={v => set('align', v)} type="select" options={ALIGN_OPTS} />
+              {sectionHeader('Агуулга')}
+              <PropInput label="Гарчиг" value={p.title} onChange={v => set('title', v)} />
+              <PropInput label="Тайлбар" value={p.description} onChange={v => set('description', v)} type="textarea" />
+              <PropInput label="Зэрэгцүүлэлт" value={p.align} onChange={v => set('align', v)} type="select" options={ALIGN_OPTS} />
             </div>
             {common}
           </div>
@@ -550,9 +550,9 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
-              <PropInput label="Title" value={p.title} onChange={v => set('title', v)} />
-              <PropInput label="Copyright" value={p.copyright} onChange={v => set('copyright', v)} />
+              {sectionHeader('Агуулга')}
+              <PropInput label="Гарчиг" value={p.title} onChange={v => set('title', v)} />
+              <PropInput label="Зохиогчийн эрх" value={p.copyright} onChange={v => set('copyright', v)} />
             </div>
             {common}
           </div>
@@ -561,7 +561,7 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
+              {sectionHeader('Агуулга')}
               <PropInput label="Гарчиг" value={p.title} onChange={v => set('title', v)} />
               <PropInput label="Тайлбар" value={p.description} onChange={v => set('description', v)} type="textarea" />
             </div>
@@ -572,7 +572,7 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
+              {sectionHeader('Агуулга')}
               <PropInput label="Гарчиг" value={p.title} onChange={v => set('title', v)} />
               <PropInput label="Имэйл" value={p.email} onChange={v => set('email', v)} />
               <PropInput label="Утас" value={p.phone} onChange={v => set('phone', v)} />
@@ -585,7 +585,7 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
+              {sectionHeader('Агуулга')}
               <PropInput label="Нэрний текст" value={p.placeholderName} onChange={v => set('placeholderName', v)} />
               <PropInput label="Имэйлийн текст" value={p.placeholderEmail} onChange={v => set('placeholderEmail', v)} />
               <PropInput label="Товчны текст" value={p.buttonText} onChange={v => set('buttonText', v)} />
@@ -598,7 +598,7 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
+              {sectionHeader('Агуулга')}
               <PropInput label="Гарчиг" value={p.title} onChange={v => set('title', v)} />
             </div>
             {common}
@@ -608,7 +608,7 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
+              {sectionHeader('Агуулга')}
               <PropInput label="Текст" value={p.content} onChange={v => set('content', v)} type="textarea" />
               <PropInput label="Хэмжээ (px)" value={p.fontSize} onChange={v => set('fontSize', v)} type="number" />
               <PropInput label="Өнгө" value={p.color} onChange={v => set('color', v)} type="color" />
@@ -622,18 +622,18 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
-              <PropInput label="Text" value={p.text} onChange={v => set('text', v)} />
-              <PropInput label="Href" value={p.href} onChange={v => set('href', v)} />
-              <PropInput label="Variant" value={p.variant} onChange={v => set('variant', v)} type="select" options={[
+              {sectionHeader('Агуулга')}
+              <PropInput label="Текст" value={p.text} onChange={v => set('text', v)} />
+              <PropInput label="Холбоос (Href)" value={p.href} onChange={v => set('href', v)} />
+              <PropInput label="Хэлбэр (Variant)" value={p.variant} onChange={v => set('variant', v)} type="select" options={[
                 { value: 'primary', label: 'Primary' }, { value: 'secondary', label: 'Secondary' },
                 { value: 'outline', label: 'Outline' }, { value: 'ghost', label: 'Ghost' },
               ]} />
-              <PropInput label="Size" value={p.size} onChange={v => set('size', v)} type="select" options={[
+              <PropInput label="Хэмжээ (Size)" value={p.size} onChange={v => set('size', v)} type="select" options={[
                 { value: 'sm', label: 'SM' }, { value: 'md', label: 'MD' }, { value: 'lg', label: 'LG' },
               ]} />
-              <PropInput label="Full Width" value={p.fullWidth} onChange={v => set('fullWidth', v)} type="toggle" />
-              <PropInput label="Disabled" value={p.disabled} onChange={v => set('disabled', v)} type="toggle" />
+              <PropInput label="Бүтэн өргөн" value={p.fullWidth} onChange={v => set('fullWidth', v)} type="toggle" />
+              <PropInput label="Идэвхгүй" value={p.disabled} onChange={v => set('disabled', v)} type="toggle" />
             </div>
           </div>
         )
@@ -641,10 +641,10 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
+              {sectionHeader('Агуулга')}
               <PropInput label="ID" value={p.id} onChange={v => set('id', v)} />
-              <PropInput label="Title" value={p.title} onChange={v => set('title', v)} />
-              <PropInput label="Content" value={p.content} onChange={v => set('content', v)} type="textarea" />
+              <PropInput label="Гарчиг" value={p.title} onChange={v => set('title', v)} />
+              <PropInput label="Агуулга" value={p.content} onChange={v => set('content', v)} type="textarea" />
               <PropInput label="Type" value={p.modalType} onChange={v => set('modalType', v)} type="select" options={[
                 { value: 'basic', label: 'Basic' }, { value: 'formModal', label: 'Form Modal' },
               ]} />
@@ -681,9 +681,9 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
                 <Plus size={14} /> Багана нэмэх
               </button>
 
-              {sectionHeader('Layout')}
-              <PropInput label="Gap" value={p.gap} onChange={v => set('gap', v)} type="select" options={SPACING_OPTS} />
-              <PropInput label="Vertical Align" value={p.verticalAlign} onChange={v => set('verticalAlign', v)} type="select" options={[
+              {sectionHeader('Байршил (Layout)')}
+              <PropInput label="Зай (Gap)" value={p.gap} onChange={v => set('gap', v)} type="select" options={SPACING_OPTS} />
+              <PropInput label="Босоо зэрэгцүүлэлт" value={p.verticalAlign} onChange={v => set('verticalAlign', v)} type="select" options={[
                 { value: 'top', label: 'Top' }, { value: 'center', label: 'Center' }, { value: 'bottom', label: 'Bottom' },
               ]} />
             </div>
@@ -694,10 +694,10 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Layout')}
-              <PropInput label="Columns" value={p.columns} onChange={v => set('columns', Number(v))} type="number" />
-              <PropInput label="Gap" value={p.gap} onChange={v => set('gap', v)} type="select" options={SPACING_OPTS} />
-              <PropInput label="Min Item Width" value={p.minItemWidth} onChange={v => set('minItemWidth', v)} />
+              {sectionHeader('Байршил (Layout)')}
+              <PropInput label="Баганы тоо" value={p.columns} onChange={v => set('columns', Number(v))} type="number" />
+              <PropInput label="Зай (Gap)" value={p.gap} onChange={v => set('gap', v)} type="select" options={SPACING_OPTS} />
+              <PropInput label="Баганын хамгийн бага өргөн" value={p.minItemWidth} onChange={v => set('minItemWidth', v)} />
             </div>
             {common}
           </div>
@@ -706,14 +706,14 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Content')}
-              <PropInput label="Title" value={p.title} onChange={v => set('title', v)} />
-              <PropInput label="Subtitle" value={p.subtitle} onChange={v => set('subtitle', v)} />
-              <PropInput label="Border" value={p.border !== false} onChange={v => set('border', v)} type="toggle" />
-              <PropInput label="Shadow" value={p.shadow} onChange={v => set('shadow', v)} type="select" options={[
+              {sectionHeader('Агуулга')}
+              <PropInput label="Гарчиг" value={p.title} onChange={v => set('title', v)} />
+              <PropInput label="Дэд гарчиг" value={p.subtitle} onChange={v => set('subtitle', v)} />
+              <PropInput label="Хүрээ" value={p.border !== false} onChange={v => set('border', v)} type="toggle" />
+              <PropInput label="Сүүдэр" value={p.shadow} onChange={v => set('shadow', v)} type="select" options={[
                 { value: 'none', label: 'None' }, { value: 'sm', label: 'SM' }, { value: 'md', label: 'MD' }, { value: 'lg', label: 'LG' },
               ]} />
-              <PropInput label="Padding" value={p.padding} onChange={v => set('padding', v)} type="select" options={SPACING_OPTS} />
+              <PropInput label="Дотор зай (Padding)" value={p.padding} onChange={v => set('padding', v)} type="select" options={SPACING_OPTS} />
             </div>
             {common}
           </div>
@@ -722,12 +722,12 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         return (
           <div className="space-y-4">
             <div className="space-y-3">
-              {sectionHeader('Layout')}
-              <PropInput label="Max Width" value={p.maxWidth} onChange={v => set('maxWidth', v)} type="select" options={[
+              {sectionHeader('Байршил (Layout)')}
+              <PropInput label="Хамгийн их өргөн" value={p.maxWidth} onChange={v => set('maxWidth', v)} type="select" options={[
                 { value: 'sm', label: 'SM (640px)' }, { value: 'md', label: 'MD (768px)' },
                 { value: 'lg', label: 'LG (1024px)' }, { value: 'xl', label: 'XL (1280px)' }, { value: 'full', label: 'Full' },
               ]} />
-              <PropInput label="Padding" value={p.padding} onChange={v => set('padding', v)} type="select" options={SPACING_OPTS} />
+              <PropInput label="Дотор зай (Padding)" value={p.padding} onChange={v => set('padding', v)} type="select" options={SPACING_OPTS} />
             </div>
             {common}
           </div>
@@ -754,7 +754,7 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         {/* Block height control */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
-            Height (px)
+            Өндөр (px)
           </label>
           <input
             type="number"
@@ -770,7 +770,7 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
         {renderFields()}
 
         <hr style={{ borderColor: borderClr, marginTop: 16, marginBottom: 16 }} />
-        {sectionHeader('Абсолют элемент (Чөлөөт)')}
+        {sectionHeader('Нэмэх')}
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <button onClick={() => set('floatElements', [...(p.floatElements||[]), { id: Date.now().toString(), type: 'button', text: 'Шинэ товч', x: 20, y: 20 }])}
             style={{ flex: 1, padding: '6px 0', border: 'none', background: '#e0e7ff', color: '#4f46e5', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+ Товч</button>
@@ -1479,13 +1479,13 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
 
           <div style={{ width: 1, height: 20, background: border }} />
 
-          <button
+          {/* <button
             onClick={() => { setIsPreview(p => !p); setSelectedBlockId(null) }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', background: isPreview ? '#f59e0b' : surface2, color: isPreview ? '#fff' : text, fontSize: 12, fontWeight: 700, transition: 'all 0.15s' }}
           >
             {isPreview ? <EyeOff style={{ width: 14, height: 14 }} /> : <Eye style={{ width: 14, height: 14 }} />}
-            {isPreview ? 'Edit' : 'Preview'}
-          </button>
+            {isPreview ? 'Засах' : 'Харах'}
+          </button> */}
 
           <button
             onClick={handlePublish}
@@ -1507,7 +1507,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#10b981', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
               >
                 <ExternalLink style={{ width: 14, height: 14 }} />
-                Сайт руу зочлох
+                Урьдчилан харах
               </a>
             );
           })()}
@@ -1537,7 +1537,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
                     transition: 'all 0.15s',
                   }}
                 >
-                  {tab}
+                  {tab === 'components' ? 'Бүрэлдэхүүн' : 'Давхарга'}
                 </button>
               ))}
             </div>
@@ -1562,7 +1562,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
                   {Object.entries(paletteGroups).map(([category, items]) => (
                     <div key={category} style={{ marginBottom: 16 }}>
                       <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: COMPONENT_COLORS[category], padding: '4px 8px', marginBottom: 4 }}>
-                        {category}
+                        {category === 'section' ? 'Хэсэг' : category === 'primitive' ? 'Үндсэн' : category === 'layout' ? 'Бүтэц' : category}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                         {items.map(item => {
@@ -1604,7 +1604,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
                 {blocks.length === 0 ? (
                   <div style={{ padding: '32px 12px', textAlign: 'center', color: textMuted }}>
                     <Layers style={{ width: 32, height: 32, marginBottom: 8, opacity: 0.3, display: 'block', margin: '0 auto 8px' }} />
-                    <p style={{ fontSize: 12 }}>Блок алга байна</p>
+                    <p style={{ fontSize: 12 }}>Блок байхгүй байна</p>
                   </div>
                 ) : blocks.map((block, i) => {
                   const reg = COMPONENT_REGISTRY.find(r => r.type === block.componentType)
@@ -1657,9 +1657,9 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
               boxShadow: '0 8px 60px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.1)',
               borderRadius: 4,
               overflow: 'hidden',
-              background: '#fff',
+              background: dm ? '#111827' : '#fff',
               // Add ruler-like border
-              outline: `1px solid ${dm ? '#334155' : '#cbd5e1'}`,
+              outline: `1px solid ${dm ? '#1f2937' : '#cbd5e1'}`,
             }}
               ref={canvasRef}
               onClick={e => {
@@ -1673,8 +1673,8 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
               {blocks.length === 0 && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', textAlign: 'center', padding: 40 }}>
                   <MousePointer2 style={{ width: 48, height: 48, marginBottom: 16, opacity: 0.3 }} />
-                  <p style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#64748b' }}>Бүрэлдэхүүнүүдээ энд оруулна уу</p>
-                  <p style={{ fontSize: 13, maxWidth: 300, lineHeight: 1.6 }}>
+                  <p style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: dm ? '#94a3b8' : '#64748b' }}>Бүрэлдэхүүнүүдээ энд оруулна уу</p>
+                  <p style={{ fontSize: 13, maxWidth: 300, lineHeight: 1.6, color: dm ? '#64748b' : '#94a3b8' }}>
                     Зүүн самбараас бүрэлдэхүүн чирэх эсвэл түүн дээр дарж шууд нэмнэ үү.
                   </p>
                 </div>
@@ -1870,7 +1870,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
                 <>
                   <div style={{ width: 1, height: 12, background: border }} />
                   <Loader2 style={{ width: 11, height: 11, animation: 'spin 1s linear infinite' }} />
-                  <span>Loading...</span>
+                  <span>Ачаалж байна...</span>
                 </>
               )}
             </div>
@@ -1898,23 +1898,23 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
                 <div style={{ padding: 16, borderBottom: `1px solid ${border}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Settings2 style={{ width: 16, height: 16, color: '#6366f1' }} />
-                    <span style={{ fontWeight: 700, fontSize: 13, color: text }}>Properties</span>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: text }}>Үзүүлэлтүүд</span>
                   </div>
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
                   <div style={{ width: 56, height: 56, borderRadius: 16, background: '#6366f115', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
                     <MousePointer2 style={{ width: 24, height: 24, color: '#6366f1', opacity: 0.6 }} />
                   </div>
-                  <p style={{ color: text, fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Select a block</p>
+                  <p style={{ color: text, fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Блок сонгоно уу</p>
                   <p style={{ color: textMuted, fontSize: 12, lineHeight: 1.6 }}>
-                    Click any block on the canvas to edit its properties
+                    Засварлахын тулд канвас дээрх дурын блок дээр дарна уу
                   </p>
                 </div>
 
                 {/* Page-level settings */}
                 <div style={{ padding: '16px', borderTop: `1px solid ${border}` }}>
                   <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6366f1', marginBottom: 12 }}>
-                    Page Settings
+                    Хуудасны тохиргоо
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
