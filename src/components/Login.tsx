@@ -105,9 +105,7 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-[420px] px-4">
         {/* Brand */}
         <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-6 shadow-2xl shadow-indigo-500/20 active:scale-95 transition-transform duration-300">
-            <Zap className="w-8 h-8 text-white fill-white/20" />
-          </div>
+           
           <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">Супер Админ</h1>
           <p className="text-slate-400 text-sm font-medium">Системд тавтай морилно уу</p>
         </div>

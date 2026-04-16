@@ -5,10 +5,10 @@ import { LogOut, Zap } from 'lucide-react'
 import {
   Sidebar,
   UserManagement,
-  Canvas,
   ProjectManagement,
   Login,
 } from './index'
+import WixBuilder from './WixBuilder'
 import AdminDashboard from './AdminDashboard'
 import { useAuthStore } from '@/stores/authStore'
 import { useProjectStore } from '@/stores/projectStore'
@@ -45,7 +45,7 @@ export default function Dashboard() {
       case 'users':
         return <UserManagement isDarkMode={isDarkMode} />
       case 'builder':
-        return <Canvas isDarkMode={isDarkMode} />
+        return <WixBuilder isDarkMode={isDarkMode} />
       case 'projects':
         return <ProjectManagement isDarkMode={isDarkMode} onEditProject={handleEditProject} />
       default:
@@ -90,7 +90,7 @@ export default function Dashboard() {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto">
+        <main className={`flex-1 overflow-hidden ${activeTab === 'builder' ? '' : 'overflow-auto'}`}>
           {renderContent()}
         </main>
       </div>

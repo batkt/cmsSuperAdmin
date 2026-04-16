@@ -12,11 +12,7 @@ export { default as Login } from './Login'
 export { default as UserManagement } from './UserManagement'
 
 // Website Building
-export { default as WebsiteBuilder } from './WebsiteBuilder'
-export { default as Canvas } from './Canvas'
-export { default as TemplateLibrary } from './TemplateLibrary'
-export { default as DraggableSection } from './DraggableSection'
-
+export { default as WixBuilder } from './WixBuilder'
 // Project Management
 export { default as ProjectManagement } from './ProjectManagement'
 
