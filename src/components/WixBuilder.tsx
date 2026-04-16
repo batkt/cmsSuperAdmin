@@ -768,6 +768,25 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
       {/* Inspector fields */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }} className="custom-scrollbar space-y-4">
         {renderFields()}
+
+        <hr style={{ borderColor: borderClr, marginTop: 16, marginBottom: 16 }} />
+        {sectionHeader('Абсолют элемент (Чөлөөт)')}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <button onClick={() => set('floatElements', [...(p.floatElements||[]), { id: Date.now().toString(), type: 'button', text: 'Шинэ товч', x: 20, y: 20 }])}
+            style={{ flex: 1, padding: '6px 0', border: 'none', background: '#e0e7ff', color: '#4f46e5', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+ Товч</button>
+          <button onClick={() => set('floatElements', [...(p.floatElements||[]), { id: (Date.now()+1).toString(), type: 'image', x: 100, y: 20 }])}
+            style={{ flex: 1, padding: '6px 0', border: 'none', background: '#f1f5f9', color: '#475569', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+ Зураг</button>
+        </div>
+        {(p.floatElements || []).map((el: any, i: number) => (
+           <div key={el.id} style={{ padding: 8, border: `1px solid ${borderClr}`, borderRadius: 8, position: 'relative', marginTop: 8 }}>
+             <PropInput label={el.type==='button' ? 'Товчний текст' : 'Зургийн холбоос'} value={el.type==='button'?el.text:el.src} onChange={v => {
+                const newEl = [...p.floatElements]; newEl[i] = { ...el, [el.type==='button'?'text':'src']: v }; set('floatElements', newEl)
+             }} />
+             <button onClick={() => {
+                const newEl = p.floatElements.filter((_:any, idx:number) => idx !== i); set('floatElements', newEl)
+             }} style={{ position: 'absolute', top: 4, right: 4, background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={12}/></button>
+           </div>
+        ))}
       </div>
 
       {/* Actions */}
@@ -906,6 +925,60 @@ function CanvasBlock({
 }
 
 // ─── Main WixBuilder Component ────────────────────────────────────────────────
+
+// ─── Floating Draggable Element ───────────────────────────────────────────────
+
+function DraggableElement({ element, isPreview, onDragEnd, isSelected, onClick }: any) {
+  const [pos, setPos] = useState({ x: element.x || 0, y: element.y || 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  
+  useEffect(() => {
+    setPos({ x: element.x || 0, y: element.y || 0 })
+  }, [element.x, element.y])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isPreview) return
+    e.stopPropagation()
+    onClick()
+    setIsDragging(true)
+    const sx = e.clientX
+    const sy = e.clientY
+    const startX = pos.x
+    const startY = pos.y
+
+    const move = (me: MouseEvent) => {
+      setPos({ x: startX + (me.clientX - sx), y: startY + (me.clientY - sy) })
+    }
+    const up = (me: MouseEvent) => {
+      setIsDragging(false)
+      onDragEnd(startX + (me.clientX - sx), startY + (me.clientY - sy))
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+
+  return (
+    <div
+      onMouseDown={handleMouseDown}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
+      style={{
+        position: 'absolute', left: pos.x, top: pos.y, zIndex: 50,
+        cursor: isPreview ? 'default' : 'move',
+        border: isPreview ? 'none' : isSelected ? '2px solid #ec4899' : '1px dashed transparent',
+      }}
+    >
+      {element.type === 'button' ? (
+        <button style={{ pointerEvents: isPreview ? 'auto' : 'none', padding: '8px 16px', background: '#ec4899', color: '#fff', borderRadius: 8, border: 'none', fontWeight: 600 }}>{element.text || 'Товч'}</button>
+      ) : element.type === 'image' ? (
+         <div style={{ pointerEvents: isPreview ? 'auto' : 'none', width: 120, height: 120, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 8 }}>
+           {element.src ? <img src={element.src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon style={{ width: 32, height: 32, color: '#94a3b8' }} />}
+         </div>
+      ) : null}
+    </div>
+  )
+}
 
 export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
   const accessToken = useAuthStore(s => s.accessToken)!
@@ -1095,7 +1168,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
       props: { 
         ...getDefaultProps(type), 
         _canvas: { h: reg?.defaultHeight || 200 },
-        ...(isRootAllowed ? {} : { _realType: type })
+        ...(isRootAllowed ? {} : { _realType: type, title: 'Агуулга', copyright: '©' })
       },
     })
   }, [selectedProject, pageRoute, blocks.length, createMut])
@@ -1186,7 +1259,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
       props: { 
         ...block.props, 
         _canvas: { h: block.height },
-        ...(isRootAllowed ? {} : { _realType: type })
+        ...(isRootAllowed ? {} : { _realType: type, title: 'Агуулга', copyright: '©' })
       },
     })
   }, [blocks, selectedProject, pageRoute, createMut])
@@ -1306,12 +1379,12 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
             onChange={e => setSelectedProject(e.target.value || null)}
             style={{ background: 'transparent', border: 'none', color: text, fontSize: 13, fontWeight: 700, cursor: 'pointer', outline: 'none', maxWidth: 140 }}
           >
-            <option value="">Select Project</option>
+            <option value="">Төсөл сонгох</option>
             {(projectsQuery.data?.projects ?? []).map(p => (
               <option key={String(p.name)} value={String(p.name)}>{String(p.name)}</option>
             ))}
           </select>
-          <ChevronDown style={{ width: 12, height: 12, color: textMuted }} />
+          {/* <ChevronDown style={{ width: 12, height: 12, color: textMuted }} /> */}
           <div style={{ width: 1, height: 16, background: border, margin: '0 4px' }} />
           <input
             value={pageRoute}
@@ -1428,7 +1501,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
             if (!siteUrl) return null;
             return (
               <a
-                href={siteUrl}
+                href={siteUrl as string}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#10b981', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
@@ -1630,6 +1703,23 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
                       onClick={e => { if (!isPreview) { e.stopPropagation(); setSelectedBlockId(block.id) } }}
                     >
                       <BlockPreview block={block} isSelected={block.id === selectedBlockId} isPreview={isPreview} />
+
+                      {/* --- FLOAT ELEMENTS --- */}
+                      {(block.props?.floatElements || []).map((el: any, elIdx: number) => (
+                        <DraggableElement
+                          key={el.id}
+                          element={el}
+                          isPreview={isPreview}
+                          isSelected={false}
+                          onClick={() => setSelectedBlockId(block.id)}
+                          onDragEnd={(nx: number, ny: number) => {
+                            const newElements = [...(block.props?.floatElements || [])]
+                            newElements[elIdx] = { ...newElements[elIdx], x: nx, y: ny }
+                            handleUpdateProps(block.id, { ...(block.props || {}), floatElements: newElements })
+                          }}
+                        />
+                      ))}
+                      {/* --- END FLOAT --- */}
 
                       {/* Selection outline */}
                       {block.id === selectedBlockId && !isPreview && (
