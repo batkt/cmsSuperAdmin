@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 
+import { bgMap } from '../engine/Tokens'
+
 // Footer Component - CMS Renderer Specification
 // Based on FOOTER.md specification
-
-export type FooterTheme = 'light' | 'dark' | 'primary' | 'secondary'
 
 export interface FooterLinkMap {
   [key: string]: string
@@ -17,7 +17,7 @@ export interface FooterProps {
   copyright: string
 
   // Optional
-  theme?: FooterTheme
+  bg?: string
   footerLinks?: FooterLinkMap
 
   // Note: button prop exists in schema but is not rendered currently
@@ -27,48 +27,58 @@ export interface FooterProps {
   id?: string
 }
 
-// Theme classes mapping
-const themeClasses: Record<FooterTheme, { bg: string; text: string; subtitle: string; border: string }> = {
-  light: {
-    bg: 'bg-gray-50',
+// Theme classes mapping for fallback and background
+const themeToBgMap: Record<string, string> = {
+  light: 'slate50',
+  dark: 'slate900',
+  primary: 'primary',
+  secondary: 'slate100'
+}
+
+const bgTextClasses: Record<string, { text: string; subtitle: string; border: string }> = {
+  slate50: {
     text: 'text-gray-900',
     subtitle: 'text-gray-500',
     border: 'border-gray-200',
   },
-  dark: {
-    bg: 'bg-gray-900',
+  slate900: {
     text: 'text-white',
     subtitle: 'text-gray-400',
     border: 'border-gray-800',
   },
   primary: {
-    bg: 'bg-blue-600',
     text: 'text-white',
     subtitle: 'text-blue-200',
     border: 'border-blue-500',
   },
-  secondary: {
-    bg: 'bg-gray-600',
-    text: 'text-white',
-    subtitle: 'text-gray-300',
+  slate100: {
+    text: 'text-gray-900',
+    subtitle: 'text-gray-600',
     border: 'border-gray-500',
   },
+  white: {
+    text: 'text-gray-900',
+    subtitle: 'text-gray-500',
+    border: 'border-gray-200',
+  }
 }
 
 export default function Footer({
   title,
   copyright,
-  theme = 'dark',
+  bg = 'slate900',
   footerLinks,
   className = '',
   id,
 }: FooterProps) {
-  const themeStyle = themeClasses[theme]
+  const resolvedBg = typeof bgMap[bg] !== 'undefined' ? bg : (themeToBgMap[bg] || 'slate900')
+  const bgClass = bgMap[resolvedBg] || bgMap.slate900
+  const themeStyle = bgTextClasses[resolvedBg] || bgTextClasses.slate900
 
   return (
     <footer
       id={id}
-      className={`border-t ${themeStyle.bg} ${themeStyle.border} ${className}`}
+      className={`border-t ${bgClass} ${themeStyle.border} ${className}`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">

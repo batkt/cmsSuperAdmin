@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import Button, { ButtonProps } from './Button'
 
+import { bgMap } from '../engine/Tokens'
+
 // Header Component - CMS Renderer Specification
 // Based on HEADER.md specification
-
-export type HeaderTheme = 'light' | 'dark' | 'primary' | 'secondary'
 
 export interface HeaderLink {
   href: string
@@ -21,7 +21,7 @@ export interface HeaderProps {
   title: string
 
   // Optional
-  theme?: HeaderTheme
+  bg?: string
   links?: HeaderLink[]
   button?: ButtonProps
 
@@ -30,45 +30,50 @@ export interface HeaderProps {
   id?: string
 }
 
-// Theme classes mapping
-const themeClasses: Record<HeaderTheme, { bg: string; text: string; border: string }> = {
-  light: {
-    bg: 'bg-white',
+// Theme classes mapping for fallback and border/text
+const themeToBgMap: Record<string, string> = {
+  light: 'white',
+  dark: 'slate900',
+  primary: 'primary',
+  secondary: 'slate100'
+}
+
+const themeClasses: Record<string, { text: string; border: string }> = {
+  white: {
     text: 'text-gray-900',
     border: 'border-gray-200',
   },
-  dark: {
-    bg: 'bg-gray-900',
+  slate900: {
     text: 'text-white',
     border: 'border-gray-700',
   },
   primary: {
-    bg: 'bg-blue-600',
     text: 'text-white',
     border: 'border-blue-500',
   },
-  secondary: {
-    bg: 'bg-gray-600',
-    text: 'text-white',
+  slate100: {
+    text: 'text-gray-900',
     border: 'border-gray-500',
   },
 }
 
 export default function Header({
   title,
-  theme = 'light',
+  bg = 'white',
   links = [],
   button,
   className = '',
   id,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const themeStyle = themeClasses[theme]
+  const resolvedBg = typeof bgMap[bg] !== 'undefined' ? bg : (themeToBgMap[bg] || 'white')
+  const bgClass = bgMap[resolvedBg] || bgMap.white
+  const themeStyle = themeClasses[resolvedBg] || themeClasses.white
 
   return (
     <header
       id={id}
-      className={`sticky top-0 z-50 border-b ${themeStyle.bg} ${themeStyle.border} ${themeStyle.text} ${className}`}
+      className={`sticky top-0 z-50 border-b ${bgClass} ${themeStyle.border} ${themeStyle.text} ${className}`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">

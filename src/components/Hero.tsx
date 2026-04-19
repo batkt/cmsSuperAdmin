@@ -7,7 +7,7 @@ import Button, { ButtonProps } from './Button'
 
 export type HeroAlign = 'left' | 'center' | 'right'
 export type HeroTheme = 'light' | 'dark' | 'primary' | 'secondary'
-export type HeroSpacing = 'none' | 'sm' | 'md' | 'lg' | 'xl'
+import { bgMap, alignMap, spacingMap } from '../engine/Tokens'
 
 export interface HeroImage {
   url: string
@@ -20,9 +20,9 @@ export interface HeroProps {
 
   // Optional
   subtitle?: string
-  align?: HeroAlign
-  theme?: HeroTheme
-  spacing?: HeroSpacing
+  align?: string
+  bg?: string
+  padding?: string
   buttons?: ButtonProps[]
   images?: HeroImage[]
 
@@ -31,37 +31,33 @@ export interface HeroProps {
   id?: string
 }
 
-// Theme classes mapping
-const themeClasses: Record<HeroTheme, { bg: string; text: string; subtitle: string }> = {
-  light: {
-    bg: 'bg-white',
+// Map custom Hero themes to Tokens bg if needed, or rely on Token's colors directly.
+// For backwards compatibility, we'll map dark to slate900 and light to white, primary to primary
+const themeToBgMap: Record<string, string> = {
+  light: 'white',
+  dark: 'slate900',
+  primary: 'primary',
+  secondary: 'slate100'
+}
+
+// Text color mappings based on bg token
+const bgTextClasses: Record<string, { text: string; subtitle: string }> = {
+  white: {
     text: 'text-gray-900',
     subtitle: 'text-gray-600',
   },
-  dark: {
-    bg: 'bg-gray-900',
+  slate900: {
     text: 'text-white',
     subtitle: 'text-gray-300',
   },
   primary: {
-    bg: 'bg-blue-600',
     text: 'text-white',
     subtitle: 'text-blue-100',
   },
-  secondary: {
-    bg: 'bg-gray-600',
-    text: 'text-white',
-    subtitle: 'text-gray-200',
+  slate100: {
+    text: 'text-gray-900',
+    subtitle: 'text-gray-600',
   },
-}
-
-// Spacing classes mapping
-const spacingClasses: Record<HeroSpacing, string> = {
-  none: 'py-0',
-  sm: 'py-8',
-  md: 'py-12',
-  lg: 'py-16 lg:py-24',
-  xl: 'py-20 lg:py-32',
 }
 
 // Alignment classes
@@ -90,37 +86,61 @@ export default function Hero({
   title,
   subtitle,
   align = 'center',
-  theme = 'light',
-  spacing = 'lg',
+  bg = 'white',
+  padding = 'lg',
   buttons,
   images,
   className = '',
   id,
 }: HeroProps) {
-  const themeStyle = themeClasses[theme]
-  const alignStyle = alignClasses[align]
+  // Handle backwards compatibility for theme
+  const resolvedBg = typeof bgMap[bg] !== 'undefined' ? bg : (themeToBgMap[bg] || 'white')
+  const bgClass = bgMap[resolvedBg] || bgMap.white
+  const textStyle = bgTextClasses[resolvedBg] || bgTextClasses.white
+  
+  const alignStyleMap: Record<string, { container: string; buttons: string; images: string }> = {
+    left: {
+      container: 'items-start',
+      buttons: 'justify-start',
+      images: 'justify-start',
+    },
+    center: {
+      container: 'items-center',
+      buttons: 'justify-center',
+      images: 'justify-center',
+    },
+    right: {
+      container: 'items-end',
+      buttons: 'justify-end',
+      images: 'justify-end',
+    },
+  }
+  
+  const alignSpecificStyle = alignStyleMap[align] || alignStyleMap.center
+  const textJustify = alignMap[align] || alignMap.center
+  const spacingClass = padding && padding !== 'none' ? `py-[${spacingMap[padding] || '0'}]` : 'py-16 lg:py-24'
 
   return (
     <section
       id={id}
-      className={`${spacingClasses[spacing]} ${themeStyle.bg} ${className}`}
+      className={`${spacingClass} ${bgClass} ${className}`}
     >
-      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col ${alignStyle.container}`}>
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col ${alignSpecificStyle.container}`}>
         {/* Title */}
-        <h1 className={`text-4xl md:text-5xl lg:text-6xl font-bold ${themeStyle.text} ${alignStyle.text}`}>
+        <h1 className={`text-4xl md:text-5xl lg:text-6xl font-bold ${textStyle.text} ${textJustify}`}>
           {title}
         </h1>
 
         {/* Subtitle */}
         {subtitle && (
-          <p className={`mt-4 text-lg md:text-xl max-w-3xl ${themeStyle.subtitle} ${alignStyle.text}`}>
+          <p className={`mt-4 text-lg md:text-xl max-w-3xl ${textStyle.subtitle} ${textJustify}`}>
             {subtitle}
           </p>
         )}
 
         {/* Buttons */}
         {buttons && buttons.length > 0 && (
-          <div className={`mt-8 flex flex-wrap gap-4 ${alignStyle.buttons}`}>
+          <div className={`mt-8 flex flex-wrap gap-4 ${alignSpecificStyle.buttons}`}>
             {buttons.map((btn, index) => (
               <Button key={index} {...btn} />
             ))}
@@ -129,7 +149,7 @@ export default function Hero({
 
         {/* Images */}
         {images && images.length > 0 && (
-          <div className={`mt-12 w-full flex flex-wrap gap-6 ${alignStyle.images}`}>
+          <div className={`mt-12 w-full flex flex-wrap gap-6 ${alignSpecificStyle.images}`}>
             {images.map((image, index) => (
               <div
                 key={index}

@@ -2,18 +2,19 @@
 
 import React from 'react'
 
+import { bgMap } from '../engine/Tokens'
+
 // Container Component - CMS Renderer Specification
 // Based on CONTAINER.md specification
 
 export type ContainerMaxWidth = 'sm' | 'md' | 'lg' | 'xl' | 'full'
 export type ContainerPadding = 'none' | 'sm' | 'md' | 'lg' | 'xl'
-export type ContainerTheme = 'light' | 'dark' | 'primary' | 'secondary'
 
 export interface ContainerProps {
   // Layout options
   maxWidth?: ContainerMaxWidth
   padding?: ContainerPadding
-  theme?: ContainerTheme
+  bg?: string
 
   // Children - for slot-based rendering
   children?: React.ReactNode
@@ -41,32 +42,35 @@ const paddingClasses: Record<ContainerPadding, string> = {
   xl: 'py-16 px-4 sm:px-6 lg:px-8 xl:px-12',
 }
 
-// Theme classes mapping
-const themeClasses: Record<ContainerTheme, string> = {
-  light: 'bg-white',
-  dark: 'bg-gray-900',
-  primary: 'bg-blue-600',
-  secondary: 'bg-gray-600',
+// Theme classes mapping for fallback
+const themeToBgMap: Record<string, string> = {
+  light: 'white',
+  dark: 'slate900',
+  primary: 'primary',
+  secondary: 'slate100'
 }
 
 export default function Container({
   maxWidth = 'xl',
   padding = 'lg',
-  theme = 'light',
+  bg = 'white',
   children,
   className = '',
   id,
 }: ContainerProps) {
+  const resolvedBg = typeof bgMap[bg] !== 'undefined' ? bg : (themeToBgMap[bg] || 'white')
+  const bgClass = bgMap[resolvedBg] || bgMap.white
+
   return (
     <section
       id={id}
-      className={`${themeClasses[theme]} ${className}`}
+      className={`${bgClass} ${className}`}
     >
       <div className={`${maxWidthClasses[maxWidth]} mx-auto ${paddingClasses[padding]}`}>
         {children ? (
           children
         ) : (
-          <div className={`text-sm italic ${theme === 'light' ? 'text-gray-400' : 'text-white/50'}`}>
+          <div className={`text-sm italic ${resolvedBg === 'white' ? 'text-gray-400' : 'text-white/50'}`}>
             Container slot - empty
           </div>
         )}
