@@ -59,6 +59,9 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
   const [users, setUsers] = useState<{ email: string; role: string; bindings: any[] }[]>([])
   const [selectedUserFilter, setSelectedUserFilter] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [newProjectName, setNewProjectName] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
   const accessToken = useAuthStore(s => s.accessToken)!
 
   useEffect(() => { loadProjects(); loadUsers() }, [])
@@ -137,6 +140,22 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
     finally { setActionInProgress(null) }
   }
 
+  const handleGenerateProject = async () => {
+    if (!newProjectName.trim()) return
+    setIsGenerating(true)
+    setError('')
+    try {
+      await api.generateProject(accessToken, newProjectName.trim())
+      await loadProjects()
+      setIsModalOpen(false)
+      setNewProjectName('')
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   return (
     <div className={`min-h-screen p-6 transition-colors duration-300 ${isDarkMode ? 'bg-background' : 'bg-slate-50'}`}>
       {/* Header */}
@@ -149,20 +168,8 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={async () => {
-              const name = prompt('Оруулах төслийн нэрийг бичнэ үү (жишээ нь: my-new-project):');
-              if (!name) return;
-              setIsLoading(true);
-              try {
-                await api.generateProject(accessToken, name);
-                await loadProjects();
-              } catch (err: any) {
-                setError(err.message);
-              } finally {
-                setIsLoading(false);
-              }
-            }}
-            disabled={isLoading}
+            onClick={() => setIsModalOpen(true)}
+            disabled={isLoading || isGenerating}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 shadow-lg shadow-indigo-500/20 ${isDarkMode
                 ? 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500'
                 : 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700'
@@ -349,6 +356,44 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
           })
         )}
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-md rounded-2xl p-6 shadow-2xl ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+            <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Шинэ төсөл үүсгэх</h3>
+            <p className={`text-sm mb-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              Оруулах төслийн нэрийг бичнэ үү (жишээ нь: my-new-project)
+            </p>
+            <input 
+              autoFocus
+              type="text" 
+              value={newProjectName} 
+              onChange={e => setNewProjectName(e.target.value)}
+              placeholder="Төслийн нэр"
+              className={`w-full px-4 py-3 rounded-xl border text-sm mb-6 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+              onKeyDown={e => { if (e.key === 'Enter') handleGenerateProject() }}
+              disabled={isGenerating}
+            />
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => { setIsModalOpen(false); setNewProjectName('') }}
+                disabled={isGenerating}
+                className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                Болих
+              </button>
+              <button 
+                onClick={handleGenerateProject}
+                disabled={!newProjectName.trim() || isGenerating}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-500/20"
+              >
+                {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {isGenerating ? 'Үүсгэж байна...' : 'Үүсгэх'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

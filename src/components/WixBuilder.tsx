@@ -103,9 +103,9 @@ function getDefaultProps(type: string, websiteName = 'My Website'): Record<strin
     case 'contact-form':
       return { buttonText: 'Илгээх', placeholderName: 'Таны нэр', placeholderEmail: 'Имэйл хаяг', theme: 'light' }
     case 'jobs':
-      return { title: 'Ажлын байр', theme: 'light' }
+      return { title: 'Ажлын байр', items: [{ title: 'Программист', department: 'Мэдээллийн технологи' }], theme: 'light' }
     case 'rental':
-      return { title: 'Түрээс', theme: 'light' }
+      return { title: 'Түрээс', items: [{ title: 'Оффис түрээс', description: 'Сүхбаатар дүүрэгт' }], theme: 'light' }
     case 'text':
       return { content: 'Текст оруулах хэсэг', fontSize: 16, color: '#334155', align: 'left' }
     case 'section':
@@ -413,17 +413,44 @@ function BlockPreview({ block, isSelected, isPreview, isEditMode = false, onUpda
       )
 
     case 'jobs':
-    case 'rental':
+    case 'rental': {
+      const items = Array.isArray(props.items) ? props.items : []
       return (
         <div style={{ background: theme.bg, color: theme.text, height: '100%', padding: 40, position: 'relative' }} className="flex flex-col items-center justify-center">
           {ThemeBar}
           <EditableText value={props.title || (type === 'jobs' ? 'Ажлын байр' : 'Түрээс')} onSave={v => set('title', v)} isEditMode={EM}
-            style={{ fontSize: 32, fontWeight: 700, marginBottom: 16 }} />
-          <div style={{ width: 300, height: 100, background: theme.accent + '15', borderRadius: 12, border: `2px dashed ${theme.accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {type === 'jobs' ? 'Ажлын байрны жагсаалт' : 'Түрээсийн жагсаалт'}
+            style={{ fontSize: 32, fontWeight: 700, marginBottom: 24 }} />
+          
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
+            {items.map((item: any, i: number) => (
+              <div key={i} style={{ padding: '20px', background: theme.accent + '10', borderRadius: 12, border: `1px solid ${theme.accent}30`, position: 'relative', minWidth: 200, textAlign: 'center' }}>
+                <EditableText value={item.title || ''} placeholder="Гарчиг..." onSave={v => { const ni = [...items]; ni[i] = { ...item, title: v }; set('items', ni) }}
+                  isEditMode={EM} style={{ fontWeight: 600, marginBottom: 8, fontSize: 18 }} />
+                
+                {type === 'jobs' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <EditableText value={item.department || ''} placeholder="Хэлтэс..." onSave={v => { const ni = [...items]; ni[i] = { ...item, department: v }; set('items', ni) }}
+                      isEditMode={EM} style={{ fontSize: 13, opacity: 0.8 }} />
+                    <EditableText value={item.location || ''} placeholder="Байршил..." onSave={v => { const ni = [...items]; ni[i] = { ...item, location: v }; set('items', ni) }}
+                      isEditMode={EM} style={{ fontSize: 13, opacity: 0.8 }} />
+                  </div>
+                )}
+                
+                {type === 'rental' && (
+                   <EditableText value={item.description || ''} placeholder="Тайлбар..." multiline onSave={v => { const ni = [...items]; ni[i] = { ...item, description: v }; set('items', ni) }}
+                    isEditMode={EM} style={{ fontSize: 14, opacity: 0.8 }} />
+                )}
+
+                {EM && <button onClick={e => { e.stopPropagation(); set('items', items.filter((_: any, idx: number) => idx !== i)) }}
+                  style={{ position: 'absolute', top: -10, right: -10, width: 22, height: 22, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>×</button>}
+              </div>
+            ))}
+            {EM && <button onClick={e => { e.stopPropagation(); set('items', [...items, { title: (type === 'jobs' ? `Ажлын байр ${items.length + 1}` : `Түрээс ${items.length + 1}`) }]) }}
+              style={{ padding: '20px 30px', border: '2px dashed rgba(99,102,241,0.4)', borderRadius: 12, background: 'transparent', color: '#6366f1', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+ Нэмэх</button>}
           </div>
         </div>
       )
+    }
 
     case 'text':
       return (
@@ -755,16 +782,42 @@ function ComponentInspector({ block, onChange, onDelete, onDuplicate, isDarkMode
           </div>
         )
       case 'jobs':
-      case 'rental':
+      case 'rental': {
+        const listItems = p.items || []
         return (
           <div className="space-y-4">
             <div className="space-y-3">
               {sectionHeader('Агуулга')}
               <PropInput label="Гарчиг" value={p.title} onChange={v => set('title', v)} />
             </div>
+            <div className="space-y-3">
+              {sectionHeader('Жагсаалт')}
+              {listItems.map((item: any, i: number) => (
+                <div key={i} className="p-3 border rounded-lg relative" style={{ borderColor: borderClr, background: sectionBg }}>
+                  <PropInput label="Гарчиг" value={item.title} onChange={v => { const ni = [...listItems]; ni[i] = { ...item, title: v }; set('items', ni) }} />
+                  {type === 'jobs' && (
+                    <>
+                      <PropInput label="Хэлтэс" value={item.department} onChange={v => { const ni = [...listItems]; ni[i] = { ...item, department: v }; set('items', ni) }} />
+                      <PropInput label="Байршил" value={item.location} onChange={v => { const ni = [...listItems]; ni[i] = { ...item, location: v }; set('items', ni) }} />
+                    </>
+                  )}
+                  {type === 'rental' && (
+                    <PropInput label="Тайлбар" value={item.description} onChange={v => { const ni = [...listItems]; ni[i] = { ...item, description: v }; set('items', ni) }} type="textarea" />
+                  )}
+                  <button onClick={() => set('items', listItems.filter((_: any, idx: number) => idx !== i))} style={{ position: 'absolute', top: 6, right: 6, padding: 4, background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={12} /></button>
+                </div>
+              ))}
+              <button
+                onClick={() => set('items', [...listItems, { title: `Шинэ ${type === 'jobs' ? 'ажлын байр' : 'түрээс'}` }])}
+                style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: `1px solid ${catColor}50`, background: `${catColor}15`, color: catColor, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                <Plus size={14} /> Нэмэх
+              </button>
+            </div>
             {common}
           </div>
         )
+      }
       case 'text':
         return (
           <div className="space-y-4">
@@ -1509,6 +1562,16 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
     api.patchDesign(accessToken, selectedProject, selectedProject, {
       pages: updatedPages.map(p => ({ route: p.route, title: p.title }))
     }).then(() => {
+      // Auto-add link to Header
+      const headerBlock = blocks.find(b => b.componentType === 'header')
+      if (headerBlock && headerBlock.instanceId) {
+        const currentLinks = Array.isArray(headerBlock.props.links) ? headerBlock.props.links : []
+        if (!currentLinks.some((l: any) => l.href === route)) {
+          const newLinks = [...currentLinks, { label: title, href: route }]
+          patchMut.mutate({ id: headerBlock.instanceId, body: { props: { ...headerBlock.props, links: newLinks } } })
+        }
+      }
+
       toast.success(`"${title}" хуудас нэмэгдлээ`)
       setPageRoute(route)
       setNewPageRoute('')
@@ -1516,7 +1579,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
       setIsAddingPage(false)
       qc.invalidateQueries({ queryKey: ['design', selectedProject] })
     }).catch(e => toast.error('Хуудас нэмэхэд алдаа гарлаа: ' + e.message))
-  }, [selectedProject, pages, newPageRoute, newPageTitle, accessToken, qc])
+  }, [selectedProject, pages, newPageRoute, newPageTitle, accessToken, qc, blocks, patchMut])
 
   const handleDeletePage = useCallback((route: string) => {
     if (route === '/') return toast.error('Нүүр хуудсыг устгах боломжгүй')
@@ -1526,10 +1589,20 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
     api.patchDesign(accessToken, selectedProject!, selectedProject!, {
       pages: updatedPages.map(p => ({ route: p.route, title: p.title }))
     }).then(() => {
+      // Auto-remove link from Header
+      const headerBlock = blocks.find(b => b.componentType === 'header')
+      if (headerBlock && headerBlock.instanceId) {
+        const currentLinks = Array.isArray(headerBlock.props.links) ? headerBlock.props.links : []
+        if (currentLinks.some((l: any) => l.href === route)) {
+          const newLinks = currentLinks.filter((l: any) => l.href !== route)
+          patchMut.mutate({ id: headerBlock.instanceId, body: { props: { ...headerBlock.props, links: newLinks } } })
+        }
+      }
+
       toast.success('Хуудас устгагдлаа')
       qc.invalidateQueries({ queryKey: ['design', selectedProject] })
     }).catch(e => toast.error('Алдаа: ' + e.message))
-  }, [pages, pageRoute, selectedProject, accessToken, qc])
+  }, [pages, pageRoute, selectedProject, accessToken, qc, blocks, patchMut])
 
   // ── Publish ──
   const handlePublish = () => {
