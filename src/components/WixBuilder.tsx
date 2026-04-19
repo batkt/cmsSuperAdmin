@@ -97,7 +97,7 @@ function getDefaultProps(type: string, websiteName = 'My Website'): Record<strin
     case 'grid':
       return { columns: 3, gap: 'md', theme: 'light' }
     case 'services':
-      return { title: 'Бидний үйлчилгээ', description: 'Таны хэрэгцээнд зориулсан шийдлүүд', items: ['Үйлчилгээ 1', 'Үйлчилгээ 2', 'Үйлчилгээ 3'], theme: 'light' }
+      return { title: 'Бидний үйлчилгээ', description: 'Таны хэрэгцээнд зориулсан шийдлүүд', items: [{ title: 'Үйлчилгээ 1' }, { title: 'Үйлчилгээ 2' }, { title: 'Үйлчилгээ 3' }], theme: 'light' }
     case 'contact':
       return { title: 'Холбоо барих', email: 'contact@example.com', phone: '+976 99999999', address: 'Улаанбаатар хот', theme: 'light' }
     case 'contact-form':
@@ -119,14 +119,94 @@ function getDefaultProps(type: string, websiteName = 'My Website'): Record<strin
   }
 }
 
+// ─── Inline Editable Primitives ─────────────────────────────────────────────
+
+function EditableText({
+  value, onSave, isEditMode, style = {}, multiline = false,
+  placeholder = 'Текст оруулах...', className = '',
+}: {
+  value: string; onSave: (v: string) => void; isEditMode: boolean
+  style?: React.CSSProperties; multiline?: boolean; placeholder?: string; className?: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [local, setLocal] = useState(value)
+  useEffect(() => { setLocal(value) }, [value])
+  const commit = () => { setEditing(false); if (local !== value) onSave(local) }
+  const baseEditStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.97)', border: '2px solid #6366f1', borderRadius: 6,
+    outline: 'none', fontFamily: 'inherit', color: '#0f172a', boxSizing: 'border-box',
+  }
+  if (!isEditMode) return <div style={style} className={className}>{value || null}</div>
+  if (editing) {
+    return multiline
+      ? <textarea value={local} onChange={e => setLocal(e.target.value)} onBlur={commit} autoFocus rows={3}
+          style={{ ...style, ...baseEditStyle, padding: '6px 10px', resize: 'vertical', minWidth: 120, minHeight: 56, display: 'block', width: '100%' }} />
+      : <input type="text" value={local} onChange={e => setLocal(e.target.value)} onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setLocal(value) } }}
+          autoFocus style={{ ...style, ...baseEditStyle, padding: '4px 10px', display: 'block', minWidth: 80, width: 'auto' }} />
+  }
+  return (
+    <div onClick={e => { e.stopPropagation(); setEditing(true) }} className={className}
+      style={{ ...style, cursor: 'text', borderRadius: 4, outline: '2px dashed rgba(99,102,241,0.4)', outlineOffset: 3, minWidth: 40 }}
+      title="Дарж засварлах">
+      {value || <span style={{ opacity: 0.35, fontSize: '0.85em' }}>{placeholder}</span>}
+    </div>
+  )
+}
+
+function EditableImage({ src, alt = '', onSave, isEditMode, style = {} }: {
+  src?: string; alt?: string; onSave: (url: string) => void
+  isEditMode: boolean; style?: React.CSSProperties
+}) {
+  const [showInput, setShowInput] = useState(false)
+  const [url, setUrl] = useState(src || '')
+  useEffect(() => setUrl(src || ''), [src])
+  return (
+    <div style={{ position: 'relative', overflow: 'hidden', ...style }}>
+      {src
+        ? <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        : <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#f1f5f9', borderRadius: 8 }}>
+            <ImageIcon style={{ width: 36, height: 36, color: '#c7d2fe' }} />
+            {isEditMode && <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>Зураг нэмэх</span>}
+          </div>
+      }
+      {isEditMode && !showInput && (
+        <div onClick={e => { e.stopPropagation(); setShowInput(true) }}
+          className="img-edit-overlay"
+          style={{ position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.07)', border: '2px dashed rgba(99,102,241,0.55)', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.18s' }}>
+          <div style={{ background: '#6366f1', color: '#fff', padding: '6px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 16px rgba(99,102,241,0.4)', pointerEvents: 'none' }}>
+            <ImageIcon style={{ width: 13, height: 13 }} /> Зураг солих
+          </div>
+        </div>
+      )}
+      {isEditMode && showInput && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 99, background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(8px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16, borderRadius: 8 }}>
+          <div style={{ color: '#818cf8', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Зургийн URL</div>
+          <input value={url} onChange={e => setUrl(e.target.value)} autoFocus placeholder="https://images.unsplash.com/..."
+            onKeyDown={e => { if (e.key === 'Enter') { onSave(url); setShowInput(false) } if (e.key === 'Escape') setShowInput(false) }}
+            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 12, outline: 'none' }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { onSave(url); setShowInput(false) }} style={{ padding: '7px 20px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓ Хадгалах</button>
+            <button onClick={() => setShowInput(false)} style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>Болих</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Block Preview Renderer ───────────────────────────────────────────────────
 
-function BlockPreview({ block, isSelected, isPreview }: {
+function BlockPreview({ block, isSelected, isPreview, isEditMode = false, onUpdateProp }: {
   block: BlockSection
   isSelected: boolean
   isPreview: boolean
+  isEditMode?: boolean
+  onUpdateProp?: (key: string, val: any) => void
 }) {
   const { componentType: type, props = {} } = block
+  const set = (key: string, val: any) => onUpdateProp?.(key, val)
+  const EM = isEditMode
 
   const themeColors: Record<string, { bg: string; text: string; accent: string }> = {
     light:     { bg: '#ffffff',    text: '#1e293b', accent: '#6366f1' },
@@ -134,133 +214,200 @@ function BlockPreview({ block, isSelected, isPreview }: {
     primary:   { bg: '#4f46e5',    text: '#ffffff', accent: '#a5b4fc' },
     secondary: { bg: '#f1f5f9',    text: '#334155', accent: '#6366f1' },
   }
-
   const theme = themeColors[props.theme as string] || themeColors.light
-  const align = props.align || 'center'
+  const align = (props.align || 'center') as string
+
+  // Quick theme switcher shown in edit mode on every block
+  const ThemeBar = EM ? (
+    <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 50, display: 'flex', gap: 3 }}>
+      {(['light', 'dark', 'primary', 'secondary'] as const).map(t => (
+        <button key={t} onClick={e => { e.stopPropagation(); set('theme', t) }}
+          style={{ padding: '3px 7px', background: props.theme === t ? theme.accent : 'rgba(255,255,255,0.88)', color: props.theme === t ? '#fff' : '#475569', border: `1px solid ${props.theme === t ? theme.accent : 'rgba(0,0,0,0.12)'}`, borderRadius: 5, fontSize: 9, fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(4px)' }}>
+          {t}
+        </button>
+      ))}
+    </div>
+  ) : null
+
+  // Alignment buttons
+  const AlignBar = ({ current, onChange }: { current: string; onChange: (a: string) => void }) => EM ? (
+    <div style={{ display: 'inline-flex', gap: 3 }}>
+      {[['left','⬅'],['center','⬛'],['right','➡']].map(([a, icon]) => (
+        <button key={a} onClick={e => { e.stopPropagation(); onChange(a) }}
+          style={{ width: 24, height: 24, background: current === a ? theme.accent : 'rgba(255,255,255,0.85)', border: `1px solid ${current === a ? theme.accent : 'rgba(0,0,0,0.12)'}`, borderRadius: 5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>{icon}</button>
+      ))}
+    </div>
+  ) : null
 
   switch (type) {
-    case 'header':
+    case 'header': {
+      const links = Array.isArray(props.links) ? props.links : []
       return (
-        <div style={{ background: theme.bg, color: theme.text, height: '100%', borderBottom: '1px solid rgba(0,0,0,0.08)' }}
-          className="flex items-center px-8 gap-8">
-          <div style={{ color: theme.accent }} className="font-bold text-lg flex-shrink-0">
-            {props.title || 'Site Title'}
-          </div>
-          <nav className="flex gap-6 ml-auto">
-            {(props.links || []).slice(0, 4).map((l: any, i: number) => (
-              <span key={i} style={{ color: theme.text, opacity: 0.7 }} className="text-sm cursor-pointer hover:opacity-100 transition-opacity">
-                {l.label}
-              </span>
+        <div style={{ background: theme.bg, color: theme.text, height: '100%', borderBottom: '1px solid rgba(0,0,0,0.08)', position: 'relative' }}
+          className="flex items-center px-8 gap-6">
+          {ThemeBar}
+          <EditableText value={props.title || 'Site Title'} onSave={v => set('title', v)} isEditMode={EM}
+            style={{ color: theme.accent, fontWeight: 800, fontSize: 20, flexShrink: 0, marginRight: 16 }} />
+          <nav style={{ display: 'flex', gap: 16, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
+            {links.map((l: any, i: number) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <EditableText value={l.label || 'Link'}
+                  onSave={v => { const nl = [...links]; nl[i] = { ...nl[i], label: v }; set('links', nl) }}
+                  isEditMode={EM} style={{ color: theme.text, opacity: 0.75, fontSize: 14 }} />
+                {EM && <button onClick={e => { e.stopPropagation(); set('links', links.filter((_: any, idx: number) => idx !== i)) }}
+                  style={{ width: 14, height: 14, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', fontSize: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>×</button>}
+              </div>
             ))}
+            {EM && <button onClick={e => { e.stopPropagation(); set('links', [...links, { label: 'Шинэ', href: '#' }]) }}
+              style={{ padding: '3px 10px', border: '1px dashed rgba(99,102,241,0.5)', borderRadius: 6, background: 'rgba(99,102,241,0.08)', color: '#6366f1', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>+ Цэс</button>}
           </nav>
-          {props.button && (
-            <div style={{ background: theme.accent, color: '#fff', padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
-              {props.button.text}
-            </div>
-          )}
         </div>
       )
+    }
 
-    case 'hero':
+    case 'hero': {
+      const buttons = Array.isArray(props.buttons) ? props.buttons : []
+      const heroAlign = props.align || 'center'
+      const alignItems = heroAlign === 'center' ? 'center' : heroAlign === 'right' ? 'flex-end' : 'flex-start'
       return (
-        <div style={{ background: theme.bg, color: theme.text, height: '100%', textAlign: align as any }}
-          className="flex flex-col items-center justify-center px-12 relative overflow-hidden">
+        <div style={{ background: theme.bg, color: theme.text, height: '100%', position: 'relative' }}
+          className="flex flex-col items-center justify-center px-12 overflow-hidden">
           <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 0%, ${theme.accent}22 0%, transparent 65%)`, pointerEvents: 'none' }} />
-          <h1 style={{ color: theme.text, fontSize: 42, fontWeight: 800, lineHeight: 1.15, marginBottom: 16, maxWidth: 700 }}>
-            {props.title || 'Hero Title'}
-          </h1>
-          {props.subtitle && (
-            <p style={{ color: theme.text, opacity: 0.7, fontSize: 18, maxWidth: 560, marginBottom: 32 }}>
-              {props.subtitle}
-            </p>
-          )}
-          <div className="flex gap-3 flex-wrap justify-center">
-            {(props.buttons || []).slice(0, 2).map((b: any, i: number) => (
-              <div key={i} style={{
-                background: i === 0 ? theme.accent : 'transparent',
-                color: i === 0 ? '#fff' : theme.text,
-                border: i === 0 ? 'none' : `2px solid ${theme.text}33`,
-                padding: '12px 28px', borderRadius: 10, fontWeight: 700, fontSize: 14,
-              }}>
-                {b.text}
+          {props.backgroundImage && <img src={props.backgroundImage} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.2, pointerEvents: 'none' }} />}
+          {ThemeBar}
+          {EM && (
+            <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 50, display: 'flex', gap: 4, alignItems: 'center' }}>
+              <AlignBar current={heroAlign} onChange={v => set('align', v)} />
+              <div style={{ position: 'relative', width: 32, height: 32 }}>
+                <EditableImage src={props.backgroundImage} onSave={v => set('backgroundImage', v || undefined)} isEditMode={true}
+                  style={{ width: 32, height: 32, borderRadius: 6, border: '1px dashed rgba(99,102,241,0.6)' }} />
               </div>
-            ))}
+            </div>
+          )}
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems, maxWidth: 800, width: '100%', textAlign: heroAlign as any }}>
+            <EditableText value={props.title || 'Hero Title'} onSave={v => set('title', v)} isEditMode={EM}
+              style={{ color: theme.text, fontSize: 42, fontWeight: 800, lineHeight: 1.15, marginBottom: 16, maxWidth: 700 }} />
+            <EditableText value={props.subtitle || ''} onSave={v => set('subtitle', v)} isEditMode={EM} multiline
+              placeholder="Дэд гарчиг нэмэх..."
+              style={{ color: theme.text, opacity: 0.7, fontSize: 18, maxWidth: 560, marginBottom: 32 }} />
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: alignItems }}>
+              {buttons.map((b: any, i: number) => (
+                <div key={i} style={{ position: 'relative' }}>
+                  <EditableText value={b.text || 'Button'}
+                    onSave={v => { const nb = [...buttons]; nb[i] = { ...nb[i], text: v }; set('buttons', nb) }}
+                    isEditMode={EM}
+                    style={{ background: i === 0 ? theme.accent : 'transparent', color: i === 0 ? '#fff' : theme.text, border: i === 0 ? 'none' : `2px solid ${theme.text}44`, padding: '12px 28px', borderRadius: 10, fontWeight: 700, fontSize: 14, display: 'inline-block' }} />
+                  {EM && <button onClick={e => { e.stopPropagation(); set('buttons', buttons.filter((_: any, idx: number) => idx !== i)) }}
+                    style={{ position: 'absolute', top: -8, right: -8, width: 18, height: 18, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>×</button>}
+                </div>
+              ))}
+              {EM && <button onClick={e => { e.stopPropagation(); set('buttons', [...buttons, { text: 'Шинэ товч', variant: 'outline', size: 'md' }]) }}
+                style={{ padding: '10px 20px', border: '2px dashed rgba(99,102,241,0.4)', borderRadius: 10, background: 'transparent', color: '#6366f1', fontSize: 13, fontWeight: 700, cursor: 'pointer', alignSelf: 'center' }}>+ Товч нэмэх</button>}
+            </div>
           </div>
         </div>
       )
+    }
 
-    case 'about':
+    case 'about': {
+      const images = Array.isArray(props.images) ? props.images : []
       return (
-        <div style={{ background: theme.bg, color: theme.text, height: '100%' }}
+        <div style={{ background: theme.bg, color: theme.text, height: '100%', position: 'relative' }}
           className="flex items-center px-12 gap-12">
-          {props.images?.[0] && (
-            <div style={{ width: 340, height: 260, flexShrink: 0, background: '#f1f5f9', borderRadius: 16, overflow: 'hidden' }}>
-              <img src={props.images[0].url} alt={props.images[0].alt || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-          )}
-          {!props.images?.[0] && (
-            <div style={{ width: 340, height: 260, flexShrink: 0, background: `${theme.accent}15`, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ImageIcon style={{ color: theme.accent, width: 48, height: 48, opacity: 0.4 }} />
-            </div>
-          )}
-          <div style={{ textAlign: align as any }}>
-            {props.title && <h2 style={{ color: theme.text, fontSize: 32, fontWeight: 700, marginBottom: 16 }}>{props.title}</h2>}
-            <p style={{ color: theme.text, opacity: 0.7, lineHeight: 1.7, fontSize: 16, maxWidth: 480 }}>{props.description}</p>
+          {ThemeBar}
+          <div style={{ flexShrink: 0 }}>
+            <EditableImage src={images[0]?.url} alt={images[0]?.alt || ''}
+              onSave={v => { const ni = [...images]; ni[0] = { ...(ni[0] || {}), url: v, alt: ni[0]?.alt || '' }; set('images', ni) }}
+              isEditMode={EM} style={{ width: 320, height: 240, borderRadius: 16 }} />
+          </div>
+          <div style={{ textAlign: align as any, flex: 1 }}>
+            {EM && <div style={{ marginBottom: 8 }}><AlignBar current={align} onChange={v => set('align', v)} /></div>}
+            <EditableText value={props.title || ''} onSave={v => set('title', v)} isEditMode={EM}
+              placeholder="Гарчиг..." style={{ color: theme.text, fontSize: 32, fontWeight: 700, marginBottom: 16 }} />
+            <EditableText value={props.description || ''} onSave={v => set('description', v)} isEditMode={EM} multiline
+              placeholder="Тайлбар нэмэх..."
+              style={{ color: theme.text, opacity: 0.7, lineHeight: 1.7, fontSize: 16 }} />
           </div>
         </div>
       )
+    }
 
-    case 'footer':
+    case 'footer': {
+      const footerLinks = props.footerLinks || {}
       return (
-        <div style={{ background: theme.bg, color: theme.text, height: '100%' }}
+        <div style={{ background: theme.bg, color: theme.text, height: '100%', position: 'relative' }}
           className="flex flex-col items-center justify-center px-8">
-          <div style={{ color: theme.accent, fontWeight: 700, fontSize: 20, marginBottom: 16 }}>{props.title}</div>
-          <div className="flex gap-6 mb-6">
-            {Object.entries(props.footerLinks || {}).slice(0, 4).map(([k, v]: any) => (
-              <span key={k} style={{ color: theme.text, opacity: 0.5, fontSize: 13 }} className="cursor-pointer hover:opacity-80 transition-opacity">
-                {v}
-              </span>
+          {ThemeBar}
+          <EditableText value={props.title || ''} onSave={v => set('title', v)} isEditMode={EM}
+            style={{ color: theme.accent, fontWeight: 700, fontSize: 20, marginBottom: 16 }} />
+          <div style={{ display: 'flex', gap: 20, marginBottom: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {Object.entries(footerLinks).map(([k, v]: any) => (
+              <EditableText key={k} value={v} onSave={nv => set('footerLinks', { ...footerLinks, [k]: nv })}
+                isEditMode={EM} style={{ color: theme.text, opacity: 0.5, fontSize: 13, cursor: 'pointer' }} />
             ))}
           </div>
-          <p style={{ color: theme.text, opacity: 0.35, fontSize: 12 }}>{props.copyright}</p>
+          <EditableText value={props.copyright || ''} onSave={v => set('copyright', v)} isEditMode={EM}
+            style={{ color: theme.text, opacity: 0.35, fontSize: 12 }} />
         </div>
       )
+    }
 
-    case 'services':
+    case 'services': {
+      const items = Array.isArray(props.items) ? props.items : []
       return (
-        <div style={{ background: theme.bg, color: theme.text, height: '100%', padding: 40 }} className="flex flex-col items-center">
-          <h2 style={{ fontSize: 32, fontWeight: 700, marginBottom: 16 }}>{props.title}</h2>
-          <p style={{ opacity: 0.7, marginBottom: 32 }}>{props.description}</p>
-          <div className="flex gap-4">
-            {(props.items || []).map((item: any, i: number) => (
-              <div key={i} style={{ padding: 24, background: theme.accent+'10', borderRadius: 12, border: `1px solid ${theme.accent}30` }}>
-                {item}
+        <div style={{ background: theme.bg, color: theme.text, height: '100%', padding: 40, position: 'relative' }} className="flex flex-col items-center">
+          {ThemeBar}
+          <EditableText value={props.title || ''} onSave={v => set('title', v)} isEditMode={EM}
+            style={{ fontSize: 32, fontWeight: 700, marginBottom: 12, textAlign: 'center' }} />
+          <EditableText value={props.description || ''} onSave={v => set('description', v)} isEditMode={EM} multiline
+            style={{ opacity: 0.7, marginBottom: 28, textAlign: 'center', maxWidth: 560 }} />
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {items.map((item: any, i: number) => (
+              <div key={i} style={{ padding: '20px 24px', background: theme.accent + '10', borderRadius: 12, border: `1px solid ${theme.accent}30`, position: 'relative', minWidth: 120, textAlign: 'center' }}>
+                <EditableText value={item.title || ''} onSave={v => { const ni = [...items]; ni[i] = { ...item, title: v }; set('items', ni) }}
+                  isEditMode={EM} style={{ fontWeight: 600 }} />
+                {EM && <button onClick={e => { e.stopPropagation(); set('items', items.filter((_: any, idx: number) => idx !== i)) }}
+                  style={{ position: 'absolute', top: -7, right: -7, width: 16, height: 16, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', fontSize: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>}
+              </div>
+            ))}
+            {EM && <button onClick={e => { e.stopPropagation(); set('items', [...items, { title: `Үйлчилгээ ${items.length + 1}` }]) }}
+              style={{ padding: '20px 24px', border: '2px dashed rgba(99,102,241,0.35)', borderRadius: 12, background: 'transparent', color: '#6366f1', fontSize: 13, fontWeight: 700, cursor: 'pointer', minWidth: 120 }}>+ Нэмэх</button>}
+          </div>
+        </div>
+      )
+    }
+
+    case 'contact': {
+      return (
+        <div style={{ background: theme.bg, color: theme.text, height: '100%', padding: 40, position: 'relative' }} className="flex flex-col items-center justify-center">
+          {ThemeBar}
+          <EditableText value={props.title || ''} onSave={v => set('title', v)} isEditMode={EM}
+            style={{ fontSize: 32, fontWeight: 700, marginBottom: 24, textAlign: 'center' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+            {(['email', 'phone', 'address'] as const).map((key, ki) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 18 }}>{['📧','📱','📍'][ki]}</span>
+                <EditableText value={(props as any)[key] || ''} onSave={v => set(key, v)} isEditMode={EM}
+                  placeholder={`${key} нэмэх...`} style={{ opacity: 0.8, fontSize: 15 }} />
               </div>
             ))}
           </div>
         </div>
       )
+    }
 
-    case 'contact':
-      return (
-        <div style={{ background: theme.bg, color: theme.text, height: '100%', padding: 40 }} className="flex flex-col items-center justify-center">
-          <h2 style={{ fontSize: 32, fontWeight: 700, marginBottom: 24 }}>{props.title}</h2>
-          <div className="text-center space-y-2 opacity-80">
-            <p>📧 {props.email}</p>
-            <p>📱 {props.phone}</p>
-            <p>📍 {props.address}</p>
-          </div>
-        </div>
-      )
-      
     case 'contact-form':
       return (
-        <div style={{ background: theme.bg, height: '100%', padding: 24 }} className="flex items-center justify-center">
+        <div style={{ background: theme.bg, height: '100%', padding: 24, position: 'relative' }} className="flex items-center justify-center">
+          {ThemeBar}
           <div style={{ width: '100%', maxWidth: 400, padding: 24, borderRadius: 16, border: '1px solid #e2e8f0', background: '#fff' }}>
-            <input placeholder={props.placeholderName} style={{ width: '100%', padding: 12, border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 12 }} disabled />
-            <input placeholder={props.placeholderEmail} style={{ width: '100%', padding: 12, border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 12 }} disabled />
-            <textarea placeholder="Мессеж" style={{ width: '100%', padding: 12, border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 12, height: 80 }} disabled />
-            <div style={{ background: theme.accent, color: '#fff', padding: 12, textAlign: 'center', borderRadius: 8, fontWeight: 600 }}>{props.buttonText}</div>
+            <input placeholder={props.placeholderName || 'Таны нэр'} style={{ width: '100%', padding: 12, border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 12, boxSizing: 'border-box' }} disabled />
+            <input placeholder={props.placeholderEmail || 'Имэйл хаяг'} style={{ width: '100%', padding: 12, border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 12, boxSizing: 'border-box' }} disabled />
+            <textarea placeholder="Мессеж" style={{ width: '100%', padding: 12, border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 12, height: 80, boxSizing: 'border-box', resize: 'none' }} disabled />
+            <div style={{ background: theme.accent, color: '#fff', padding: 12, textAlign: 'center', borderRadius: 8, fontWeight: 600 }}>
+              <EditableText value={props.buttonText || 'Илгээх'} onSave={v => set('buttonText', v)} isEditMode={EM}
+                style={{ color: '#fff', fontWeight: 600 }} />
+            </div>
           </div>
         </div>
       )
@@ -268,9 +415,11 @@ function BlockPreview({ block, isSelected, isPreview }: {
     case 'jobs':
     case 'rental':
       return (
-        <div style={{ background: theme.bg, color: theme.text, height: '100%', padding: 40 }} className="flex flex-col items-center justify-center">
-          <h2 style={{ fontSize: 32, fontWeight: 700, marginBottom: 16 }}>{props.title}</h2>
-          <div style={{ width: 300, height: 100, background: theme.accent+'15', borderRadius: 12, border: `2px dashed ${theme.accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: theme.bg, color: theme.text, height: '100%', padding: 40, position: 'relative' }} className="flex flex-col items-center justify-center">
+          {ThemeBar}
+          <EditableText value={props.title || (type === 'jobs' ? 'Ажлын байр' : 'Түрээс')} onSave={v => set('title', v)} isEditMode={EM}
+            style={{ fontSize: 32, fontWeight: 700, marginBottom: 16 }} />
+          <div style={{ width: 300, height: 100, background: theme.accent + '15', borderRadius: 12, border: `2px dashed ${theme.accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {type === 'jobs' ? 'Ажлын байрны жагсаалт' : 'Түрээсийн жагсаалт'}
           </div>
         </div>
@@ -278,16 +427,18 @@ function BlockPreview({ block, isSelected, isPreview }: {
 
     case 'text':
       return (
-        <div style={{ background: theme.bg || 'transparent', height: '100%', padding: 24, display: 'flex', alignItems: 'center', justifyContent: align as any }}>
-          <p style={{ color: props.color || theme.text, fontSize: props.fontSize || 16, textAlign: align as any, margin: 0 }}>
-            {props.content}
-          </p>
+        <div style={{ background: 'transparent', height: '100%', padding: 24, display: 'flex', alignItems: 'center', justifyContent: align as any, position: 'relative' }}>
+          {EM && <div style={{ position: 'absolute', top: 4, right: 4, zIndex: 50 }}><AlignBar current={align} onChange={v => set('align', v)} /></div>}
+          <EditableText value={props.content || ''} onSave={v => set('content', v)} isEditMode={EM} multiline
+            placeholder="Текст бичнэ үү..."
+            style={{ color: props.color || theme.text, fontSize: props.fontSize || 16, textAlign: align as any, width: '100%' }} />
         </div>
       )
 
     case 'section':
       return (
-        <div style={{ background: theme.bg, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: theme.bg, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          {ThemeBar}
           <div style={{ color: theme.accent, opacity: 0.5, border: `2px dashed ${theme.accent}30`, borderRadius: 12, padding: 24, width: '90%', height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em' }}>
             ХООСОН ХЭСЭГ (СЛОТ)
           </div>
@@ -296,71 +447,77 @@ function BlockPreview({ block, isSelected, isPreview }: {
 
     case 'pagination':
       return (
-        <div style={{ background: theme.bg, color: theme.text, height: '100%' }}
-          className="flex items-center justify-center gap-2">
+        <div style={{ background: theme.bg, color: theme.text, height: '100%', position: 'relative' }} className="flex items-center justify-center gap-2">
+          {ThemeBar}
           {[1, 2, 3, '...', 8].map((p, i) => (
-            <div key={i} style={{
-              width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: 8, background: i === 0 ? theme.accent : 'transparent',
-              color: i === 0 ? '#fff' : theme.text, fontSize: 14, fontWeight: 600,
-              border: `1px solid ${i === 0 ? theme.accent : theme.text + '22'}`,
-            }}>
-              {p}
-            </div>
+            <div key={i} style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, background: i === 0 ? theme.accent : 'transparent', color: i === 0 ? '#fff' : theme.text, fontSize: 14, fontWeight: 600, border: `1px solid ${i === 0 ? theme.accent : theme.text + '22'}` }}>{p}</div>
           ))}
         </div>
       )
 
     case 'button':
       return (
-        <div style={{ background: theme.bg, height: '100%' }}
-          className="flex items-center justify-center">
-          <div style={{
-            background: props.variant === 'outline' ? 'transparent' : theme.accent,
-            color: props.variant === 'outline' ? theme.accent : '#fff',
-            border: props.variant === 'outline' ? `2px solid ${theme.accent}` : 'none',
-            padding: props.size === 'lg' ? '14px 32px' : props.size === 'sm' ? '8px 16px' : '11px 24px',
-            borderRadius: 10, fontWeight: 700, fontSize: 14,
-          }}>
-            {props.text || 'Button'}
+        <div style={{ background: theme.bg, height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: (props.align || 'center') as any }}>
+          {ThemeBar}
+          {EM && <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 50 }}><AlignBar current={props.align || 'center'} onChange={v => set('align', v)} /></div>}
+          <div style={{ background: props.variant === 'outline' ? 'transparent' : theme.accent, color: props.variant === 'outline' ? theme.accent : '#fff', border: props.variant === 'outline' ? `2px solid ${theme.accent}` : 'none', padding: props.size === 'lg' ? '14px 32px' : props.size === 'sm' ? '8px 16px' : '11px 24px', borderRadius: 10, fontWeight: 700, fontSize: 14 }}>
+            <EditableText value={props.text || 'Button'} onSave={v => set('text', v)} isEditMode={EM}
+              style={{ color: props.variant === 'outline' ? theme.accent : '#fff', fontWeight: 700 }} />
           </div>
         </div>
       )
 
     case 'modal':
       return (
-        <div style={{ background: theme.bg, height: '100%' }}
-          className="flex items-center justify-center">
+        <div style={{ background: theme.bg, height: '100%', position: 'relative' }} className="flex items-center justify-center">
+          {ThemeBar}
           <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 320, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.06)' }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: '#0f172a' }}>{props.title}</div>
-            <p style={{ color: '#64748b', fontSize: 13, lineHeight: 1.6 }}>{props.content}</p>
-            <div className="flex gap-2 mt-4">
-              {props.showTrigger !== false && (
-                <div style={{ background: '#6366f1', color: '#fff', padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'center' }}>
-                  {props.openButtonText || 'Open'}
-                </div>
-              )}
+            <EditableText value={props.title || 'Modal Title'} onSave={v => set('title', v)} isEditMode={EM}
+              style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: '#0f172a' }} />
+            <EditableText value={props.content || ''} onSave={v => set('content', v)} isEditMode={EM} multiline
+              style={{ color: '#64748b', fontSize: 13, lineHeight: 1.6, marginBottom: 16 }} />
+            <div style={{ background: '#6366f1', color: '#fff', padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
+              <EditableText value={props.openButtonText || 'Open'} onSave={v => set('openButtonText', v)} isEditMode={EM}
+                style={{ color: '#fff', fontWeight: 600 }} />
             </div>
           </div>
         </div>
       )
 
-    case 'twocolumn':
+    case 'twocolumn': {
+      const cols = Array.isArray(props.columns) ? props.columns : [{ content: 'Багана 1' }, { content: 'Багана 2' }]
       return (
-        <div style={{ background: theme.bg, height: '100%', display: 'flex', gap: props.gap==='lg'?32:props.gap==='sm'?12:24, padding: 24, flexWrap: 'wrap', alignItems: props.verticalAlign === 'center' ? 'center' : props.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start' }}>
-          {(props.columns || [{ content: 'Багана 1' }, { content: 'Багана 2' }]).map((col: any, i: number) => (
-            <div key={i} style={{ flex: 1, minWidth: 240, background: `${theme.accent}08`, borderRadius: 12, minHeight: 120, border: `1px solid ${theme.accent}22`, padding: 24, color: theme.text }}>
-              {col.content}
+        <div style={{ background: theme.bg, height: '100%', display: 'flex', gap: props.gap === 'lg' ? 32 : props.gap === 'sm' ? 12 : 24, padding: 24, flexWrap: 'wrap', alignItems: 'flex-start', position: 'relative' }}>
+          {ThemeBar}
+          {cols.map((col: any, i: number) => (
+            <div key={i} style={{ flex: 1, minWidth: 180, background: `${theme.accent}08`, borderRadius: 12, minHeight: 120, border: `1px solid ${theme.accent}22`, padding: 20, color: theme.text, position: 'relative' }}>
+              {col.imageUrl !== undefined && (
+                <EditableImage src={col.imageUrl} onSave={v => { const nc = [...cols]; nc[i] = { ...nc[i], imageUrl: v }; set('columns', nc) }}
+                  isEditMode={EM} style={{ width: '100%', height: 100, borderRadius: 8, marginBottom: 10 }} />
+              )}
+              <EditableText value={col.content || ''} onSave={v => { const nc = [...cols]; nc[i] = { ...nc[i], content: v }; set('columns', nc) }}
+                isEditMode={EM} multiline placeholder="Агуулга нэмэх..." style={{ color: theme.text }} />
+              {EM && col.imageUrl === undefined && (
+                <button onClick={e => { e.stopPropagation(); const nc = [...cols]; nc[i] = { ...nc[i], imageUrl: '' }; set('columns', nc) }}
+                  style={{ marginTop: 8, padding: '3px 8px', background: 'rgba(99,102,241,0.12)', color: '#6366f1', border: 'none', borderRadius: 5, fontSize: 10, cursor: 'pointer', fontWeight: 700 }}>+ Зураг</button>
+              )}
+              {EM && <button onClick={e => { e.stopPropagation(); set('columns', cols.filter((_: any, idx: number) => idx !== i)) }}
+                style={{ position: 'absolute', top: -7, right: -7, width: 16, height: 16, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', fontSize: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>}
             </div>
           ))}
+          {EM && <button onClick={e => { e.stopPropagation(); set('columns', [...cols, { content: `Багана ${cols.length + 1}` }]) }}
+            style={{ alignSelf: 'stretch', minWidth: 80, border: '2px dashed rgba(99,102,241,0.35)', borderRadius: 12, background: 'transparent', color: '#6366f1', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Багана</button>}
         </div>
       )
+    }
 
-    case 'grid':
+    case 'grid': {
+      const colCount = Math.min(props.columns || 3, 6)
       return (
-        <div style={{ background: theme.bg, height: '100%', padding: 24 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(props.columns || 3, 6)}, 1fr)`, gap: 16 }}>
-            {Array.from({ length: Math.min(props.columns || 3, 6) }).map((_, i) => (
+        <div style={{ background: theme.bg, height: '100%', padding: 24, position: 'relative' }}>
+          {ThemeBar}
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${colCount}, 1fr)`, gap: 16 }}>
+            {Array.from({ length: colCount }).map((_, i) => (
               <div key={i} style={{ background: `${theme.accent}10`, borderRadius: 10, minHeight: 120, border: `2px dashed ${theme.accent}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ color: theme.accent, opacity: 0.5, fontSize: 11, fontWeight: 600 }}>Item {i + 1}</span>
               </div>
@@ -368,25 +525,29 @@ function BlockPreview({ block, isSelected, isPreview }: {
           </div>
         </div>
       )
+    }
 
     case 'card':
       return (
-        <div style={{ background: theme.bg, height: '100%', padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: theme.bg, height: '100%', padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          {ThemeBar}
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380, boxShadow: '0 4px 24px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)' }}>
-            <div style={{ background: `${theme.accent}12`, borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
-              <span style={{ color: theme.accent, fontWeight: 700, fontSize: 14 }}>{props.title || 'Card Header'}</span>
+            <EditableImage src={props.imageUrl} onSave={v => set('imageUrl', v)} isEditMode={EM}
+              style={{ width: '100%', height: 140, borderRadius: 10, marginBottom: 14 }} />
+            <div style={{ background: `${theme.accent}12`, borderRadius: 10, padding: '10px 14px', marginBottom: 10 }}>
+              <EditableText value={props.title || 'Card Header'} onSave={v => set('title', v)} isEditMode={EM}
+                style={{ color: theme.accent, fontWeight: 700, fontSize: 14 }} />
             </div>
-            <p style={{ color: '#64748b', fontSize: 13, marginBottom: 12 }}>{props.subtitle || 'Card content goes here'}</p>
-            <div style={{ background: '#f8fafc', borderRadius: 8, padding: '8px 12px' }}>
-              <span style={{ color: '#94a3b8', fontSize: 12 }}>Footer area</span>
-            </div>
+            <EditableText value={props.subtitle || 'Card content goes here'} onSave={v => set('subtitle', v)} isEditMode={EM} multiline
+              style={{ color: '#64748b', fontSize: 13 }} />
           </div>
         </div>
       )
 
     case 'container':
       return (
-        <div style={{ background: theme.bg, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: theme.bg, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          {ThemeBar}
           <div style={{ width: '100%', maxWidth: props.maxWidth === 'full' ? '100%' : props.maxWidth === 'xl' ? 1280 : props.maxWidth === 'lg' ? 1024 : props.maxWidth === 'md' ? 768 : 640, padding: 24, border: `2px dashed ${theme.accent}30`, borderRadius: 12 }}>
             <div style={{ color: theme.accent, opacity: 0.5, textAlign: 'center', fontSize: 12, fontWeight: 600 }}>DEFAULT SLOT</div>
           </div>
@@ -988,6 +1149,10 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
 
   // State
   const [pageRoute, setPageRoute] = useState('/')
+  const [pages, setPages] = useState<{ route: string; title?: string }[]>([{ route: '/', title: 'Нүүр хуудас' }])
+  const [isAddingPage, setIsAddingPage] = useState(false)
+  const [newPageRoute, setNewPageRoute] = useState('')
+  const [newPageTitle, setNewPageTitle] = useState('')
   const [blocks, setBlocks] = useState<BlockSection[]>([])
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [isPreview, setIsPreview] = useState(false)
@@ -1032,6 +1197,20 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
     queryFn: () => api.getDesign(accessToken, selectedProject!),
     enabled: !!selectedProject,
   })
+
+  // ── Sync pages from design ──
+  useEffect(() => {
+    const designPages = designQuery.data?.design?.pages
+    if (designPages && designPages.length > 0) {
+      const synced = designPages.map((p: any) => ({ route: p.route, title: p.title || p.route }))
+      // always keep '/' first
+      const sorted = [
+        ...synced.filter((p: any) => p.route === '/'),
+        ...synced.filter((p: any) => p.route !== '/'),
+      ]
+      setPages(sorted.length > 0 ? sorted : [{ route: '/', title: 'Нүүр хуудас' }])
+    }
+  }, [designQuery.data])
 
   // ── Sync tree data → blocks ──
   useEffect(() => {
@@ -1156,11 +1335,13 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
     const reg = COMPONENT_REGISTRY.find(r => r.type === type)
     const order = atIndex !== undefined ? atIndex : blocks.length
     
-    // Fallback: If not a native section, we spoof it as a hero to bypass backend root check
-    const isRootAllowed = ['header', 'hero', 'about', 'footer', 'pagination'].includes(type)
+    // Map types to what the backend accepts at root level.
+    // Non-standard types use 'section' as a container wrapper with _realType stored in props.
+    const backendRootTypes = ['header', 'hero', 'about', 'footer', 'pagination', 'section', 'services', 'contact', 'jobs', 'rental', 'card', 'grid', 'container', 'text', 'button', 'modal', 'twocolumn', 'contact-form']
+    const isNativeType = backendRootTypes.includes(type)
     
     createMut.mutate({
-      componentType: isRootAllowed ? type : 'hero',
+      componentType: isNativeType ? type : 'section',
       pageRoute,
       parentId: null,
       slot: null,
@@ -1168,7 +1349,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
       props: { 
         ...getDefaultProps(type), 
         _canvas: { h: reg?.defaultHeight || 200 },
-        ...(isRootAllowed ? {} : { _realType: type, title: 'Агуулга', copyright: '©' })
+        _realType: type,
       },
     })
   }, [selectedProject, pageRoute, blocks.length, createMut])
@@ -1248,10 +1429,11 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
     if (!block || !selectedProject) return
     const idx = blocks.indexOf(block)
     const type = block.componentType
-    const isRootAllowed = ['header', 'hero', 'about', 'footer', 'pagination'].includes(type)
+    const backendRootTypes = ['header', 'hero', 'about', 'footer', 'pagination', 'section', 'services', 'contact', 'jobs', 'rental', 'card', 'grid', 'container', 'text', 'button', 'modal', 'twocolumn', 'contact-form']
+    const isNativeType = backendRootTypes.includes(type)
     
     createMut.mutate({
-      componentType: isRootAllowed ? type : 'hero',
+      componentType: isNativeType ? type : 'section',
       pageRoute,
       parentId: null,
       slot: null,
@@ -1259,7 +1441,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
       props: { 
         ...block.props, 
         _canvas: { h: block.height },
-        ...(isRootAllowed ? {} : { _realType: type, title: 'Агуулга', copyright: '©' })
+        _realType: type,
       },
     })
   }, [blocks, selectedProject, pageRoute, createMut])
@@ -1312,6 +1494,42 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }, [blocks, zoom, patchCanvasMut, patchMut])
+
+  // ── Add page ──
+  const handleAddPage = useCallback(() => {
+    if (!selectedProject) return toast.error('Төсөл сонгоно уу')
+    const route = newPageRoute.startsWith('/') ? newPageRoute : `/${newPageRoute}`
+    if (!route || route === '/') return toast.error('Хуудасны замыг оруулна уу (жш нь: /about)')
+    if (pages.find(p => p.route === route)) return toast.error('Энэ хуудас аль хэдийн байна')
+    const title = newPageTitle || route.replace('/', '').replace(/-/g, ' ') || route
+    const newPage = { route, title }
+    const updatedPages = [...pages, newPage]
+    setPages(updatedPages)
+    // Persist to backend design
+    api.patchDesign(accessToken, selectedProject, selectedProject, {
+      pages: updatedPages.map(p => ({ route: p.route, title: p.title }))
+    }).then(() => {
+      toast.success(`"${title}" хуудас нэмэгдлээ`)
+      setPageRoute(route)
+      setNewPageRoute('')
+      setNewPageTitle('')
+      setIsAddingPage(false)
+      qc.invalidateQueries({ queryKey: ['design', selectedProject] })
+    }).catch(e => toast.error('Хуудас нэмэхэд алдаа гарлаа: ' + e.message))
+  }, [selectedProject, pages, newPageRoute, newPageTitle, accessToken, qc])
+
+  const handleDeletePage = useCallback((route: string) => {
+    if (route === '/') return toast.error('Нүүр хуудсыг устгах боломжгүй')
+    const updatedPages = pages.filter(p => p.route !== route)
+    setPages(updatedPages)
+    if (pageRoute === route) setPageRoute('/')
+    api.patchDesign(accessToken, selectedProject!, selectedProject!, {
+      pages: updatedPages.map(p => ({ route: p.route, title: p.title }))
+    }).then(() => {
+      toast.success('Хуудас устгагдлаа')
+      qc.invalidateQueries({ queryKey: ['design', selectedProject] })
+    }).catch(e => toast.error('Алдаа: ' + e.message))
+  }, [pages, pageRoute, selectedProject, accessToken, qc])
 
   // ── Publish ──
   const handlePublish = () => {
@@ -1371,12 +1589,12 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
         background: dm ? '#070b18' : '#ffffff', borderBottom: `1px solid ${border}`,
         padding: '0 12px', zIndex: 50,
       }}>
-        {/* Left: project + page */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 12, borderRight: `1px solid ${border}` }}>
+        {/* Left: project selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 12, borderRight: `1px solid ${border}`, flexShrink: 0 }}>
           <Layout style={{ width: 16, height: 16, color: '#6366f1' }} />
           <select
             value={selectedProject ?? ''}
-            onChange={e => setSelectedProject(e.target.value || null)}
+            onChange={e => { setSelectedProject(e.target.value || null); setPageRoute('/') }}
             style={{ background: 'transparent', border: 'none', color: text, fontSize: 13, fontWeight: 700, cursor: 'pointer', outline: 'none', maxWidth: 140 }}
           >
             <option value="">Төсөл сонгох</option>
@@ -1384,13 +1602,74 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
               <option key={String(p.name)} value={String(p.name)}>{String(p.name)}</option>
             ))}
           </select>
-          {/* <ChevronDown style={{ width: 12, height: 12, color: textMuted }} /> */}
-          <div style={{ width: 1, height: 16, background: border, margin: '0 4px' }} />
-          <input
-            value={pageRoute}
-            onChange={e => setPageRoute(e.target.value)}
-            style={{ background: 'transparent', border: 'none', color: '#6366f1', fontSize: 12, fontFamily: 'monospace', outline: 'none', width: 80 }}
-          />
+        </div>
+
+        {/* Pages tabs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, paddingLeft: 8, paddingRight: 8, overflowX: 'auto', maxWidth: 420, flexShrink: 1 }} className="custom-scrollbar">
+          {pages.map(page => (
+            <div
+              key={page.route}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                background: pageRoute === page.route ? '#6366f1' : 'transparent',
+                color: pageRoute === page.route ? '#fff' : textMuted,
+                fontSize: 12, fontWeight: 700,
+                border: `1px solid ${pageRoute === page.route ? '#6366f1' : border}`,
+                transition: 'all 0.15s',
+                position: 'relative',
+              }}
+              onClick={() => { setPageRoute(page.route); setSelectedBlockId(null) }}
+            >
+              <Globe style={{ width: 11, height: 11, opacity: 0.7 }} />
+              {page.title || page.route}
+              {page.route !== '/' && (
+                <span
+                  onClick={e => { e.stopPropagation(); handleDeletePage(page.route) }}
+                  style={{ marginLeft: 4, opacity: 0.6, cursor: 'pointer', fontSize: 10, lineHeight: 1, display: 'flex', alignItems: 'center' }}
+                  title="Хуудас устгах"
+                >
+                  <X style={{ width: 10, height: 10 }} />
+                </span>
+              )}
+            </div>
+          ))}
+
+          {/* Add page button */}
+          {!isAddingPage ? (
+            <button
+              onClick={() => setIsAddingPage(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 8, border: `1px dashed ${border}`, background: 'transparent', color: textMuted, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+              title="Хуудас нэмэх"
+            >
+              <Plus style={{ width: 12, height: 12 }} />
+              Хуудас
+            </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px', borderRadius: 8, border: `1px solid #6366f1`, background: surface, flexShrink: 0 }}>
+              <input
+                autoFocus
+                value={newPageRoute}
+                onChange={e => setNewPageRoute(e.target.value)}
+                placeholder="/about"
+                style={{ width: 70, padding: '2px 6px', borderRadius: 6, border: `1px solid ${border}`, background: surface2, color: text, fontSize: 11, outline: 'none', fontFamily: 'monospace' }}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddPage(); if (e.key === 'Escape') { setIsAddingPage(false); setNewPageRoute('') } }}
+              />
+              <input
+                value={newPageTitle}
+                onChange={e => setNewPageTitle(e.target.value)}
+                placeholder="Гарчиг"
+                style={{ width: 70, padding: '2px 6px', borderRadius: 6, border: `1px solid ${border}`, background: surface2, color: text, fontSize: 11, outline: 'none' }}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddPage(); if (e.key === 'Escape') { setIsAddingPage(false); setNewPageRoute('') } }}
+              />
+              <button onClick={handleAddPage} style={{ width: 24, height: 24, borderRadius: 6, border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Check style={{ width: 12, height: 12 }} />
+              </button>
+              <button onClick={() => { setIsAddingPage(false); setNewPageRoute(''); setNewPageTitle('') }} style={{ width: 24, height: 24, borderRadius: 6, border: 'none', background: surface2, color: textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X style={{ width: 12, height: 12 }} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Center: viewport controls + zoom */}
@@ -1702,7 +1981,13 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
                       style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative', cursor: isPreview ? 'default' : 'pointer' }}
                       onClick={e => { if (!isPreview) { e.stopPropagation(); setSelectedBlockId(block.id) } }}
                     >
-                      <BlockPreview block={block} isSelected={block.id === selectedBlockId} isPreview={isPreview} />
+                      <BlockPreview
+                        block={block}
+                        isSelected={block.id === selectedBlockId}
+                        isPreview={isPreview}
+                        isEditMode={!isPreview && block.id === selectedBlockId}
+                        onUpdateProp={(key, val) => handleUpdateProps(block.id, { ...block.props, [key]: val })}
+                      />
 
                       {/* --- FLOAT ELEMENTS --- */}
                       {(block.props?.floatElements || []).map((el: any, elIdx: number) => (
@@ -1918,17 +2203,27 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11, color: textMuted, flex: 1 }}>Хуудас</span>
-                      <input
-                        value={pageRoute}
-                        onChange={e => setPageRoute(e.target.value)}
-                        style={{ width: 100, padding: '4px 8px', borderRadius: 6, border: `1px solid ${border}`, background: surface2, color: text, fontSize: 11, outline: 'none', fontFamily: 'monospace' }}
-                      />
+                      <span style={{ fontSize: 11, color: textMuted, flex: 1 }}>Одоогийн</span>
+                      <span style={{ fontSize: 11, color: '#6366f1', fontWeight: 700, fontFamily: 'monospace', background: '#6366f115', padding: '2px 8px', borderRadius: 6 }}>{pageRoute}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 11, color: textMuted, flex: 1 }}>Блокууд</span>
                       <span style={{ fontSize: 11, color: text, fontWeight: 700 }}>{blocks.length}</span>
                     </div>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: textMuted, marginTop: 4 }}>Хуудаснууд</div>
+                    {pages.map(page => (
+                      <div
+                        key={page.route}
+                        onClick={() => { setPageRoute(page.route); setSelectedBlockId(null) }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${pageRoute === page.route ? '#6366f1' : border}`, background: pageRoute === page.route ? '#6366f115' : 'transparent', transition: 'all 0.15s' }}
+                      >
+                        <Globe style={{ width: 10, height: 10, color: '#6366f1', flexShrink: 0 }} />
+                        <span style={{ fontSize: 11, fontWeight: pageRoute === page.route ? 700 : 500, color: pageRoute === page.route ? '#6366f1' : text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {page.title || page.route}
+                        </span>
+                        <span style={{ fontSize: 10, color: textMuted, fontFamily: 'monospace' }}>{page.route}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1941,6 +2236,8 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode: boolean }) {
       <style>{`
         .palette-item:active { cursor: grabbing !important; transform: scale(0.96); }
         .block-hover-overlay:hover { opacity: 1 !important; }
+        .img-edit-overlay:hover { opacity: 1 !important; }
+        [id^="wix-block-"]:hover .img-edit-overlay { opacity: 1 !important; }
         [id^="wix-block-"]:hover .block-hover-overlay { opacity: 1 !important; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
