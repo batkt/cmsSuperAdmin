@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import {
-  LayoutDashboard, FolderOpen, Users, Boxes,
+  LayoutDashboard, FolderOpen, Users, Layers,
   Sun, Moon, Zap, ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -19,7 +19,7 @@ const menuItems = [
   { id: 'dashboard', label: 'Хянах самбар', icon: LayoutDashboard, badge: null },
   { id: 'projects', label: 'Төслүүд', icon: FolderOpen, badge: null },
   { id: 'users', label: 'Хэрэглэгчид', icon: Users, badge: null },
-  { id: 'builder', label: 'Вэб бүтээгч', icon: Boxes, badge: 'Builder' },
+  { id: 'cms', label: 'CMS Бүтээгч', icon: Layers, badge: 'NEW' },
 ]
 
 const getInitials = (email?: string) =>
@@ -30,9 +30,9 @@ export default function Sidebar({
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
-  // auto collapse on builder tab
+  // auto collapse on full-screen tabs
   useEffect(() => {
-    if (activeTab === 'builder') setIsCollapsed(true)
+    if (activeTab === 'cms') setIsCollapsed(true)
     else setIsCollapsed(false)
   }, [activeTab])
 

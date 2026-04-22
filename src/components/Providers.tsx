@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
+import { useCmsStore } from "@/stores/cmsStore";
 
 import { Toaster } from "react-hot-toast";
 
@@ -23,6 +24,7 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
     (async () => {
       // Rehydrate stores
       await useAuthStore.persist.rehydrate();
+      await useCmsStore.persist.rehydrate();
       
       const { refreshToken, accessToken, setSession, clearSession } = useAuthStore.getState();
       

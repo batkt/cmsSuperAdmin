@@ -8,33 +8,18 @@ import {
   ProjectManagement,
   Login,
 } from './index'
-import WixBuilder from './WixBuilder'
+import CmsBuilder from './CmsBuilder'
 import AdminDashboard from './AdminDashboard'
 import { useAuthStore } from '@/stores/authStore'
 import { useProjectStore } from '@/stores/projectStore'
 
-type TabType = 'dashboard' | 'users' | 'builder' | 'projects'
+type TabType = 'dashboard' | 'users' | 'projects' | 'cms'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [isDarkMode, setIsDarkMode] = useState(false)
 
   const { accessToken, user, clearSession } = useAuthStore()
-  const { selectedProjectName, setSelectedProjectName } = useProjectStore()
-
-  const handleEditProject = useCallback((projectName: string) => {
-    setSelectedProjectName(projectName)
-    setActiveTab('builder')
-  }, [setSelectedProjectName])
-
-  useEffect(() => {
-    const handleEditProjectEvent = (event: CustomEvent) => {
-      const projectName = event.detail
-      if (projectName) handleEditProject(projectName)
-    }
-    window.addEventListener('editProject' as any, handleEditProjectEvent)
-    return () => window.removeEventListener('editProject' as any, handleEditProjectEvent)
-  }, [handleEditProject])
 
   if (!accessToken) return <Login />
 
@@ -44,10 +29,10 @@ export default function Dashboard() {
         return <AdminDashboard isDarkMode={isDarkMode} />
       case 'users':
         return <UserManagement isDarkMode={isDarkMode} />
-      case 'builder':
-        return <WixBuilder isDarkMode={isDarkMode} />
+      case 'cms':
+        return <CmsBuilder isDarkMode={isDarkMode} />
       case 'projects':
-        return <ProjectManagement isDarkMode={isDarkMode} onEditProject={handleEditProject} />
+        return <ProjectManagement isDarkMode={isDarkMode} />
       default:
         return <AdminDashboard isDarkMode={isDarkMode} />
     }
@@ -90,7 +75,7 @@ export default function Dashboard() {
         </header>
 
         {/* Content */}
-        <main className={`flex-1 overflow-hidden ${activeTab === 'builder' ? '' : 'overflow-auto'}`}>
+        <main className={`flex-1 overflow-hidden ${activeTab === 'cms' ? '' : 'overflow-auto'}`}>
           {renderContent()}
         </main>
       </div>
