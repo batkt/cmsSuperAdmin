@@ -12,7 +12,7 @@ export { default as Login } from './Login'
 export { default as UserManagement } from './UserManagement'
 
 // Website Building
-export { default as CmsBuilder } from './CmsBuilder'
+export { default as WixBuilder } from './WixBuilder'
 // Project Management
 export { default as ProjectManagement } from './ProjectManagement'
 

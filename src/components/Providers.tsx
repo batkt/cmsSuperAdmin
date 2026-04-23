@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
-import { useCmsStore } from "@/stores/cmsStore";
+
 
 import { Toaster } from "react-hot-toast";
 
@@ -24,7 +24,6 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
     (async () => {
       // Rehydrate stores
       await useAuthStore.persist.rehydrate();
-      await useCmsStore.persist.rehydrate();
       
       const { refreshToken, accessToken, setSession, clearSession } = useAuthStore.getState();
       
@@ -56,7 +55,7 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
           <div className="absolute h-10 w-10 rounded-full border-r-2 border-l-2 border-indigo-400/50 animate-spin-slow"></div>
         </div>
         <div className="mt-8 text-sm font-medium tracking-widest text-indigo-400/80 uppercase animate-pulse">
-          Loading session
+          Та түр хүлээнэ үү... 
         </div>
         <style jsx>{`
           @keyframes spin-slow {

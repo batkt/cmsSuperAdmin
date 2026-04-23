@@ -7,7 +7,8 @@ import {
   Server, Globe, Database, Boxes, Plus,
   ArrowUpRight,
 } from 'lucide-react'
-import { projectApi, userApi } from '@/lib/api-service'
+import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/authStore'
 
 interface Project {
   name: string
@@ -86,6 +87,7 @@ const statusConfig = {
 }
 
 export default function AdminDashboard({ isDarkMode }: { isDarkMode: boolean }) {
+  const accessToken = useAuthStore(s => s.accessToken)!
   const [projects, setProjects] = useState<Project[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -97,16 +99,14 @@ export default function AdminDashboard({ isDarkMode }: { isDarkMode: boolean }) 
     else setIsRefreshing(true)
     try {
       const [projRes, userRes] = await Promise.allSettled([
-        projectApi.list(),
-        userApi.list(),
+        api.listProjects(accessToken),
+        api.listUsers(accessToken),
       ])
       if (projRes.status === 'fulfilled') {
-        const p = projRes.value.projects || projRes.value.data?.projects || projRes.value || []
-        setProjects(Array.isArray(p) ? p : [])
+        setProjects((projRes.value.projects as any) || [])
       }
       if (userRes.status === 'fulfilled') {
-        const u = userRes.value.data?.users || userRes.value.users || userRes.value || []
-        setUsers(Array.isArray(u) ? u : [])
+        setUsers((userRes.value.users as any) || [])
       }
       setLastRefresh(new Date())
     } catch { /* silent */ } finally {

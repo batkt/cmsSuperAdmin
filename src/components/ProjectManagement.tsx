@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore'
 
 interface ProjectManagementProps {
   isDarkMode: boolean
+  onEditProject?: (projectName: string) => void
 }
 
 interface Project {
@@ -50,7 +51,7 @@ function SkeletonCard({ isDarkMode }: { isDarkMode: boolean }) {
   )
 }
 
-export default function ProjectManagement({ isDarkMode }: ProjectManagementProps) {
+export default function ProjectManagement({ isDarkMode, onEditProject }: ProjectManagementProps) {
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -145,6 +146,11 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
     setError('')
     try {
       await api.generateProject(accessToken, newProjectName.trim())
+      try {
+        await api.buildProject(accessToken, newProjectName.trim())
+      } catch (e) {
+        console.warn('Auto-build failed', e)
+      }
       await loadProjects()
       setIsModalOpen(false)
       setNewProjectName('')
@@ -301,6 +307,15 @@ export default function ProjectManagement({ isDarkMode }: ProjectManagementProps
 
                 {/* Actions */}
                 <div className={`mt-4 pt-3 border-t flex items-center justify-end gap-1.5 ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+                  {onEditProject && (
+                    <button
+                      id={`project-edit-${project.name}`}
+                      onClick={() => onEditProject(project.name)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> Засах
+                    </button>
+                  )}
                   <button
                     onClick={() => generateSite(project.name)}
                     disabled={!!inAction}
