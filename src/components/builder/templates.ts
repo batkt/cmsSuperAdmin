@@ -883,6 +883,27 @@ export const TEMPLATE_PARKEASE: Template = {
   ),
 };
 
+// ─── 10. Zevtabs — Modern Corporate ───────────────────────────────────────────
+export const TEMPLATE_ZEVTABS: Template = {
+  id: "zevtabs",
+  name: "Zevtabs",
+  nameEn: "Zevtabs — Modern Classy",
+  description:
+    "Гоёмсог, орчин үеийн корпорацийн болон статик вэб загвар. Бүх төрлийн үйлчилгээнд тохиромжтой.",
+  category: "static",
+  color: "#4f46e5",
+  gradient: "linear-gradient(135deg,#4f46e5,#312e81)",
+  pages: brandedPages(
+    "zv",
+    "#4f46e5",
+    "#ffffff",
+    "#0f172a",
+    "#f8fafc",
+    "Inter",
+    false,
+  ),
+};
+
 // ─── All templates list ────────────────────────────────────────────────────────
 export const ALL_TEMPLATES: Template[] = [
   TEMPLATE_FOODCITY,
@@ -894,6 +915,7 @@ export const ALL_TEMPLATES: Template[] = [
   TEMPLATE_HICAR,
   TEMPLATE_POSEASE,
   TEMPLATE_PARKEASE,
+  TEMPLATE_ZEVTABS,
 ];
 
 export const DEFAULT_EMPTY_PAGES: PageDef[] = [

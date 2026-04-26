@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { BlockSection } from './templates'
 import { Image as ImageIcon, Package, Copy, Trash2, MoveVertical, ArrowUp, ArrowDown } from 'lucide-react'
@@ -315,6 +315,19 @@ function InteractiveFreeElement({ el, index, total, accentColor, textColor, sele
     liveW.current = 0
     liveH.current = 0
   }
+  // Compute the wrapper width to match the element's actual width
+  const computeWrapWidth = (): string | undefined => {
+    const w = el.width
+    if (!w) {
+      // Default widths per element type
+      if (el.type === 'button') return '140px'
+      if (el.type === 'input') return '200px'
+      if (el.type === 'badge') return '60px'
+      if (el.type === 'text') return '80%'
+      return undefined // full width
+    }
+    return String(w)
+  }
 
   return (
     <div
@@ -328,7 +341,7 @@ function InteractiveFreeElement({ el, index, total, accentColor, textColor, sele
         outlineOffset: 3,
         transition: 'outline 0.15s',
         padding: 2,
-        width: isFullWidth ? undefined : 'fit-content',
+        width: computeWrapWidth(),
       }}
     >
       {isActive && (
@@ -426,6 +439,69 @@ export function BlockPreview({ block, isSelected, onPatchProps }: { block: Block
   )
 }
 
+// ─── Default elements generator for blocks without _elements ────────────────
+
+function elId() { return `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }
+
+function getDefaultElements(type: string, accent: string): FreeElement[] {
+  switch (type) {
+    case 'hero': return [
+      { id: elId(), type: 'image', label: 'Зураг', width: '100%', height: 160 },
+      { id: elId(), type: 'text', label: 'Гарчиг', width: '60%', height: 36, size: 52 },
+      { id: elId(), type: 'text', label: 'Дэд гарчиг', width: '80%', height: 14 },
+      { id: elId(), type: 'button', label: 'Товч 1', width: '140px', height: 46 },
+      { id: elId(), type: 'button', label: 'Товч 2', width: '120px', height: 46, bg: 'transparent' },
+    ]
+    case 'about': return [
+      { id: elId(), type: 'image', label: 'Зураг', width: '45%', height: 200 },
+      { id: elId(), type: 'text', label: 'Гарчиг', width: '220px', height: 28 },
+      { id: elId(), type: 'text', label: 'Тайлбар 1', width: '100%', height: 11 },
+      { id: elId(), type: 'text', label: 'Тайлбар 2', width: '95%', height: 11 },
+      { id: elId(), type: 'text', label: 'Тайлбар 3', width: '80%', height: 11 },
+    ]
+    case 'services': case 'features': return [
+      { id: elId(), type: 'text', label: 'Гарчиг', width: '260px', height: 28 },
+      { id: elId(), type: 'card', label: 'Карт 1', width: '100%', height: 120 },
+      { id: elId(), type: 'card', label: 'Карт 2', width: '100%', height: 120 },
+      { id: elId(), type: 'card', label: 'Карт 3', width: '100%', height: 120 },
+    ]
+    case 'products': return [
+      { id: elId(), type: 'text', label: 'Гарчиг', width: '220px', height: 28 },
+      { id: elId(), type: 'card', label: 'Бүтээгдэхүүн 1', width: '100%', height: 160 },
+      { id: elId(), type: 'card', label: 'Бүтээгдэхүүн 2', width: '100%', height: 160 },
+      { id: elId(), type: 'card', label: 'Бүтээгдэхүүн 3', width: '100%', height: 160 },
+    ]
+    case 'pricing': return [
+      { id: elId(), type: 'text', label: 'Гарчиг', width: '280px', height: 28 },
+      { id: elId(), type: 'card', label: 'Багц 1', width: '100%', height: 180 },
+      { id: elId(), type: 'card', label: 'Багц 2', width: '100%', height: 180 },
+    ]
+    case 'clients': return [
+      { id: elId(), type: 'text', label: 'Гарчиг', width: '240px', height: 26 },
+      { id: elId(), type: 'image', label: 'Лого 1', width: '80px', height: 40 },
+      { id: elId(), type: 'image', label: 'Лого 2', width: '80px', height: 40 },
+      { id: elId(), type: 'image', label: 'Лого 3', width: '80px', height: 40 },
+    ]
+    case 'promo': return [
+      { id: elId(), type: 'text', label: 'Гарчиг', width: '320px', height: 32 },
+      { id: elId(), type: 'text', label: 'Тайлбар', width: '440px', height: 14 },
+      { id: elId(), type: 'button', label: 'Товч', width: '160px', height: 48 },
+    ]
+    case 'contact': return [
+      { id: elId(), type: 'text', label: 'Гарчиг', width: '240px', height: 26 },
+      { id: elId(), type: 'input', label: 'Нэр', width: '100%', height: 46 },
+      { id: elId(), type: 'input', label: 'И-мэйл', width: '100%', height: 46 },
+      { id: elId(), type: 'button', label: 'Илгээх', width: '140px', height: 46 },
+    ]
+    case 'footer': return [
+      { id: elId(), type: 'text', label: 'Лого', width: '120px', height: 20 },
+      { id: elId(), type: 'divider', label: 'Шугам', width: '100%', height: 1 },
+      { id: elId(), type: 'text', label: 'Зохиогчийн эрх', width: '200px', height: 9 },
+    ]
+    default: return []
+  }
+}
+
 function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: BlockSection; isSelected: boolean; onPatchProps?: (patch: Record<string, unknown>) => void }) {
   const { componentType: type, props: p = {} } = block
   const bg     = p.bgColor     || '#ffffff'
@@ -435,7 +511,15 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
   const px     = p.paddingX    ?? 48
   const py     = p.paddingY    ?? 60
   const border = isSelected ? '2px solid #6366f1' : '2px solid transparent'
-  const elements: FreeElement[] = p._elements || []
+
+  // Auto-generate default _elements for blocks that don't have them yet (memoized so IDs are stable)
+  const rawElements: FreeElement[] = p._elements || []
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const defaultEls = useMemo(() => getDefaultElements(type, accent), [type, block.id])
+  const elements: FreeElement[] = rawElements.length > 0 ? rawElements : defaultEls
+
+  // If block had no _elements but we generated defaults, persist them on first interaction
+  const needsSeed = rawElements.length === 0 && elements.length > 0 && type !== 'header'
 
   const wrapStyle: CSSProperties = {
     fontFamily: font, background: bg, color: text,
@@ -448,12 +532,31 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
     if (onPatchProps) onPatchProps({ _elements: newEls })
   }, [onPatchProps])
 
-  const freeEls = <FreeElementsRenderer elements={elements} accentColor={accent} textColor={text} onPatchElements={onPatchProps ? handlePatchElements : undefined} />
+  // When user first interacts, seed the _elements so they persist
+  const seedAndPatch = useCallback((newEls: FreeElement[]) => {
+    if (onPatchProps) onPatchProps({ _elements: newEls })
+  }, [onPatchProps])
+
+  const activePatch = needsSeed
+    ? (newEls: FreeElement[]) => seedAndPatch(newEls)
+    : (onPatchProps ? handlePatchElements : undefined)
+
+  const freeEls = <FreeElementsRenderer elements={elements} accentColor={accent} textColor={text} onPatchElements={activePatch} />
   
   const freeParts: Record<string, ReactNode> = {}
   elements.forEach((el) => {
     freeParts[`free_${el.id}`] = renderFreeElement(el, accent, text)
   })
+
+  // ── If block has _elements (or defaults), render ONLY interactive free elements ──
+  // This skips hardcoded skeleton content so every element is clickable
+  if (elements.length > 0 && type !== 'header') {
+    return (
+      <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: (p.align === 'center' ? 'center' : p.align === 'right' ? 'flex-end' : 'flex-start'), gap: 4 }}>
+        {freeEls}
+      </div>
+    )
+  }
 
   function tryBlockCanvas(
     blockType: string,

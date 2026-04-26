@@ -42,20 +42,96 @@ const COMPONENT_REGISTRY = [
   { type: 'contact', label: 'Холбоо барих', icon: Phone, category: 'Хэсэг' },
 ]
 
+function uid() { return `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }
+
 function getDefaultProps(type: string): Record<string, any> {
   const base = { bgColor: '#ffffff', textColor: '#1e293b', accentColor: '#6366f1', fontFamily: 'Inter', paddingX: 48, paddingY: 60 }
   switch (type) {
     case 'header': return { ...base, paddingY: 18, sticky: true, borderBottom: true, borderColor: '#e2e8f0', shadowSize: 'sm', title: 'Site', links: [], headerNavIndependent: false, fontSize: 20, navFontSize: 14, headerCanvas: false, headerCanvasHeight: 88 }
-    case 'hero': return { ...base, paddingY: 100, align: 'center', hasImage: false, titleSize: 52, titleWeight: '800', subtitleSize: 18, btnRadius: 12, btnPaddingX: 32, btnPaddingY: 14, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('hero') }
-    case 'about': return { ...base, align: 'left', hasImage: true, titleSize: 34, cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('about') }
-    case 'services': return { ...base, columns: 3, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, cardShadow: 'md', blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('services') }
-    case 'features': return { ...base, columns: 3, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('features') }
-    case 'products': return { ...base, columns: 3, titleSize: 34, cardBg: '#ffffff', cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('products') }
-    case 'pricing': return { ...base, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('pricing') }
-    case 'clients': return { ...base, titleSize: 26, cardBg: '#f1f5f9', cardRadius: 10, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('clients') }
-    case 'promo': return { ...base, paddingY: 72, titleSize: 36, btnRadius: 12, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('promo') }
-    case 'contact': return { ...base, titleSize: 34, cardBg: '#f1f5f9', cardRadius: 12, showForm: true, formTarget: 'admin.zevtabs.mn', blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('contact') }
-    case 'footer': return { ...base, bgColor: '#0f172a', textColor: '#e2e8f0', paddingY: 48, align: 'center', blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('footer') }
+    case 'hero': return { ...base, paddingY: 100, align: 'center', hasImage: false, titleSize: 52, titleWeight: '800', subtitleSize: 18, btnRadius: 12, btnPaddingX: 32, btnPaddingY: 14, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('hero'),
+      _elements: [
+        { id: uid(), type: 'image', label: 'Зураг', width: '100%', height: 160 },
+        { id: uid(), type: 'text', label: 'Гарчиг', width: '60%', height: 36, size: 52 },
+        { id: uid(), type: 'text', label: 'Дэд гарчиг', width: '80%', height: 14 },
+        { id: uid(), type: 'button', label: 'Товч 1', width: '140px', height: 46 },
+        { id: uid(), type: 'button', label: 'Товч 2', width: '120px', height: 46, bg: 'transparent' },
+      ],
+    }
+    case 'about': return { ...base, align: 'left', hasImage: true, titleSize: 34, cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('about'),
+      _elements: [
+        { id: uid(), type: 'image', label: 'Зураг', width: '45%', height: 200 },
+        { id: uid(), type: 'text', label: 'Гарчиг', width: '220px', height: 28 },
+        { id: uid(), type: 'text', label: 'Тайлбар 1', width: '100%', height: 11 },
+        { id: uid(), type: 'text', label: 'Тайлбар 2', width: '95%', height: 11 },
+        { id: uid(), type: 'text', label: 'Тайлбар 3', width: '90%', height: 11 },
+        { id: uid(), type: 'text', label: 'Тайлбар 4', width: '80%', height: 11 },
+      ],
+    }
+    case 'services': return { ...base, columns: 3, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, cardShadow: 'md', blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('services'),
+      _elements: [
+        { id: uid(), type: 'text', label: 'Гарчиг', width: '260px', height: 28 },
+        { id: uid(), type: 'card', label: 'Карт 1', width: '100%', height: 120 },
+        { id: uid(), type: 'card', label: 'Карт 2', width: '100%', height: 120 },
+        { id: uid(), type: 'card', label: 'Карт 3', width: '100%', height: 120 },
+      ],
+    }
+    case 'features': return { ...base, columns: 3, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('features'),
+      _elements: [
+        { id: uid(), type: 'text', label: 'Гарчиг', width: '260px', height: 28 },
+        { id: uid(), type: 'card', label: 'Онцлог 1', width: '100%', height: 120 },
+        { id: uid(), type: 'card', label: 'Онцлог 2', width: '100%', height: 120 },
+        { id: uid(), type: 'card', label: 'Онцлог 3', width: '100%', height: 120 },
+      ],
+    }
+    case 'products': return { ...base, columns: 3, titleSize: 34, cardBg: '#ffffff', cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('products'),
+      _elements: [
+        { id: uid(), type: 'text', label: 'Гарчиг', width: '220px', height: 28 },
+        { id: uid(), type: 'card', label: 'Бүтээгдэхүүн 1', width: '100%', height: 160 },
+        { id: uid(), type: 'card', label: 'Бүтээгдэхүүн 2', width: '100%', height: 160 },
+        { id: uid(), type: 'card', label: 'Бүтээгдэхүүн 3', width: '100%', height: 160 },
+      ],
+    }
+    case 'pricing': return { ...base, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('pricing'),
+      _elements: [
+        { id: uid(), type: 'text', label: 'Гарчиг', width: '280px', height: 28 },
+        { id: uid(), type: 'text', label: 'Дэд гарчиг', width: '400px', height: 13 },
+        { id: uid(), type: 'card', label: 'Багц 1', width: '100%', height: 180 },
+        { id: uid(), type: 'card', label: 'Багц 2', width: '100%', height: 180 },
+        { id: uid(), type: 'card', label: 'Багц 3', width: '100%', height: 180 },
+      ],
+    }
+    case 'clients': return { ...base, titleSize: 26, cardBg: '#f1f5f9', cardRadius: 10, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('clients'),
+      _elements: [
+        { id: uid(), type: 'text', label: 'Гарчиг', width: '240px', height: 26 },
+        { id: uid(), type: 'image', label: 'Лого 1', width: '80px', height: 40 },
+        { id: uid(), type: 'image', label: 'Лого 2', width: '80px', height: 40 },
+        { id: uid(), type: 'image', label: 'Лого 3', width: '80px', height: 40 },
+        { id: uid(), type: 'image', label: 'Лого 4', width: '80px', height: 40 },
+      ],
+    }
+    case 'promo': return { ...base, paddingY: 72, titleSize: 36, btnRadius: 12, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('promo'),
+      _elements: [
+        { id: uid(), type: 'text', label: 'Гарчиг', width: '320px', height: 32 },
+        { id: uid(), type: 'text', label: 'Тайлбар', width: '440px', height: 14 },
+        { id: uid(), type: 'button', label: 'Товч', width: '160px', height: 48 },
+      ],
+    }
+    case 'contact': return { ...base, titleSize: 34, cardBg: '#f1f5f9', cardRadius: 12, showForm: true, formTarget: 'admin.zevtabs.mn', blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('contact'),
+      _elements: [
+        { id: uid(), type: 'text', label: 'Гарчиг', width: '240px', height: 26 },
+        { id: uid(), type: 'text', label: 'Тайлбар', width: '400px', height: 14 },
+        { id: uid(), type: 'input', label: 'Нэр', width: '100%', height: 46 },
+        { id: uid(), type: 'input', label: 'И-мэйл', width: '100%', height: 46 },
+        { id: uid(), type: 'button', label: 'Илгээх', width: '140px', height: 46 },
+      ],
+    }
+    case 'footer': return { ...base, bgColor: '#0f172a', textColor: '#e2e8f0', paddingY: 48, align: 'center', blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('footer'),
+      _elements: [
+        { id: uid(), type: 'text', label: 'Лого', width: '120px', height: 20 },
+        { id: uid(), type: 'divider', label: 'Шугам', width: '100%', height: 1 },
+        { id: uid(), type: 'text', label: 'Зохиогчийн эрх', width: '200px', height: 9 },
+      ],
+    }
     default: return base
   }
 }
@@ -649,7 +725,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
                       <BlockPreview
                         block={block}
                         isSelected={selectedBlockId === block.id}
-                        onPatchProps={selectedBlockId === block.id ? (patch) => patchBlockProps(block.id, patch) : undefined}
+                        onPatchProps={(patch) => patchBlockProps(block.id, patch)}
                       />
                       {/* Float controls */}
                       <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex-col gap-1 bg-white rounded-xl shadow-lg border border-slate-200 p-1 z-50 transition-all ${selectedBlockId === block.id ? 'flex opacity-100' : 'flex opacity-0 group-hover:opacity-100'}`}>
@@ -667,9 +743,20 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      {/* Block label */}
-                      <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-600 text-white pointer-events-none transition-opacity ${selectedBlockId === block.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                        {COMPONENT_REGISTRY.find(r => r.type === block.componentType)?.label ?? block.componentType}
+                      {/* Block label + delete bar on top */}
+                      <div className={`absolute top-2 left-2 right-2 flex items-center gap-2 pointer-events-none transition-opacity ${selectedBlockId === block.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                        <div className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-600 text-white shrink-0">
+                          {COMPONENT_REGISTRY.find(r => r.type === block.componentType)?.label ?? block.componentType}
+                        </div>
+                        <div className="flex-1" />
+                        {selectedBlockId === block.id && (
+                          <button
+                            onClick={e => { e.stopPropagation(); removeBlock(block.id) }}
+                            className="pointer-events-auto flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold bg-red-500 text-white hover:bg-red-600 transition-colors shadow-sm"
+                          >
+                            <Trash2 className="w-3 h-3" /> Устгах
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))
