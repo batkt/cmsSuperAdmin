@@ -1,7 +1,8 @@
 'use client'
+import { useState, useRef, useCallback } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { BlockSection } from './templates'
-import { Image as ImageIcon, Package } from 'lucide-react'
+import { Image as ImageIcon, Package, Copy, Trash2, MoveVertical, ArrowUp, ArrowDown } from 'lucide-react'
 import { HeaderCanvasPreview } from './HeaderCanvasPreview'
 import { ZoneCanvasPreview } from './ZoneCanvasPreview'
 import { defaultBlockCanvasHeight, isBuilderBlockCanvasType } from './sectionCanvasDefaults'
@@ -46,7 +47,7 @@ function wrapLink(el: FreeElement, child: React.ReactNode) {
 export function renderFreeElement(el: FreeElement, accentColor: string, textColor: string) {
   switch (el.type) {
     case 'text':
-      const textH = el.size ? el.size * 0.7 : 14
+      const textH = el.height || (el.size ? el.size * 0.7 : 14)
       return wrapLink(el, 
         <div style={{
           width: el.width || '80%',
@@ -62,7 +63,7 @@ export function renderFreeElement(el: FreeElement, accentColor: string, textColo
       return wrapLink(el,
         <div style={{
           width: el.width || 140,
-          height: 46,
+          height: el.height || 46,
           background: el.bg || accentColor,
           borderRadius: el.radius ?? 10,
           opacity: 0.9,
@@ -74,7 +75,7 @@ export function renderFreeElement(el: FreeElement, accentColor: string, textColo
       return (
         <div style={{
           width: el.width || 200,
-          height: 46,
+          height: el.height || 46,
           background: el.bg || textColor,
           opacity: 0.08,
           borderRadius: el.radius ?? 8,
@@ -178,12 +179,236 @@ export function renderFreeElement(el: FreeElement, accentColor: string, textColo
   }
 }
 
-function FreeElementsRenderer({ elements, accentColor, textColor }: { elements: FreeElement[]; accentColor: string; textColor: string }) {
-  if (!elements || elements.length === 0) return null
+// ─── Interactive Free Elements Renderer ────────────────────────────────────────
+
+function ElementToolbar({ el, index, total, onDuplicate, onDelete, onMoveUp, onMoveDown }: {
+  el: FreeElement; index: number; total: number
+  onDuplicate: () => void; onDelete: () => void
+  onMoveUp: () => void; onMoveDown: () => void
+}) {
+  const btnBase: CSSProperties = {
+    width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    border: 'none', borderRadius: 6, cursor: 'pointer', transition: 'all 0.15s',
+    background: 'transparent', color: '#64748b',
+  }
   return (
-    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-      {elements.map(el => (
-        <div key={el.id}>{renderFreeElement(el, accentColor, textColor)}</div>
+    <div
+      onClick={e => e.stopPropagation()}
+      style={{
+        position: 'absolute', top: -36, left: '50%', transform: 'translateX(-50%)',
+        display: 'flex', gap: 2, padding: '3px 6px',
+        background: '#ffffff', borderRadius: 10, boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+        border: '1px solid #e2e8f0', zIndex: 100, whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', padding: '6px 4px 0 2px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        {el.type}
+      </span>
+      <button style={btnBase} title="Дээш" onClick={onMoveUp} disabled={index === 0}>
+        <ArrowUp style={{ width: 13, height: 13, opacity: index === 0 ? 0.25 : 1 }} />
+      </button>
+      <button style={btnBase} title="Доош" onClick={onMoveDown} disabled={index === total - 1}>
+        <ArrowDown style={{ width: 13, height: 13, opacity: index === total - 1 ? 0.25 : 1 }} />
+      </button>
+      <div style={{ width: 1, height: 18, background: '#e2e8f0', margin: '4px 2px' }} />
+      <button style={{ ...btnBase }} title="Хуулах" onClick={onDuplicate}
+        onMouseEnter={e => (e.currentTarget.style.background = '#eef2ff')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+        <Copy style={{ width: 13, height: 13 }} />
+      </button>
+      <button style={{ ...btnBase, color: '#ef4444' }} title="Устгах" onClick={onDelete}
+        onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+        <Trash2 style={{ width: 13, height: 13 }} />
+      </button>
+    </div>
+  )
+}
+
+function ResizeHandle({ direction, onResizeDelta }: { direction: 'right' | 'bottom'; onResizeDelta: (delta: number) => void }) {
+  const dragging = useRef(false)
+  const lastPos = useRef(0)
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation(); e.preventDefault()
+    dragging.current = true
+    lastPos.current = direction === 'right' ? e.clientX : e.clientY
+
+    const onMove = (ev: PointerEvent) => {
+      if (!dragging.current) return
+      const cur = direction === 'right' ? ev.clientX : ev.clientY
+      const delta = cur - lastPos.current
+      if (Math.abs(delta) > 1) {
+        onResizeDelta(delta)
+        lastPos.current = cur
+      }
+    }
+    const onUp = () => {
+      dragging.current = false
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+    }
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+  }, [direction, onResizeDelta])
+
+  const isH = direction === 'right'
+  const style: CSSProperties = isH
+    ? { position: 'absolute', right: -6, top: 0, bottom: 0, width: 12, cursor: 'ew-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }
+    : { position: 'absolute', bottom: -6, left: 0, right: 0, height: 12, cursor: 'ns-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }
+
+  const dot: CSSProperties = isH
+    ? { width: 4, height: 24, borderRadius: 3, background: '#6366f1', opacity: 0.7 }
+    : { width: 24, height: 4, borderRadius: 3, background: '#6366f1', opacity: 0.7 }
+
+  return (
+    <div style={style} onPointerDown={onPointerDown}>
+      <div style={dot} />
+    </div>
+  )
+}
+
+function InteractiveFreeElement({ el, index, total, accentColor, textColor, selectedId, onSelect, onPatch, onDuplicate, onDelete, onReorder }: {
+  el: FreeElement; index: number; total: number
+  accentColor: string; textColor: string
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+  onPatch: (id: string, patch: Partial<FreeElement>) => void
+  onDuplicate: (id: string) => void
+  onDelete: (id: string) => void
+  onReorder: (from: number, to: number) => void
+}) {
+  const isActive = selectedId === el.id
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  // Determine if the element is naturally full-width
+  const isFullWidth = el.type === 'image' || el.type === 'card' || el.type === 'section' || el.type === 'divider' || el.type === 'menu'
+
+  // Track live sizes in refs so rapid drag deltas accumulate correctly
+  const liveW = useRef(0)
+  const liveH = useRef(0)
+
+  // Parse stored width to pixels
+  const parseW = (): number => {
+    if (el.width) {
+      const n = parseInt(String(el.width))
+      if (n > 0) return n
+    }
+    return wrapRef.current?.offsetWidth || 200
+  }
+  const defaultH = el.type === 'image' ? 160 : el.type === 'button' ? 46 : el.type === 'input' ? 46 : el.type === 'card' ? 120 : el.type === 'section' ? 80 : 14
+
+  const handleResizeW = useCallback((delta: number) => {
+    if (liveW.current === 0) liveW.current = parseW()
+    liveW.current = Math.max(30, liveW.current + delta)
+    onPatch(el.id, { width: `${Math.round(liveW.current)}px` })
+  }, [el.id, onPatch])
+
+  const handleResizeH = useCallback((delta: number) => {
+    if (liveH.current === 0) liveH.current = el.height ?? defaultH
+    liveH.current = Math.max(16, liveH.current + delta)
+    onPatch(el.id, { height: Math.round(liveH.current) })
+  }, [el.id, onPatch, el.height, defaultH])
+
+  // Reset live refs when element is deselected
+  if (!isActive) {
+    liveW.current = 0
+    liveH.current = 0
+  }
+
+  return (
+    <div
+      ref={wrapRef}
+      onClick={e => { e.stopPropagation(); onSelect(isActive ? null : el.id) }}
+      style={{
+        position: 'relative',
+        cursor: 'pointer',
+        borderRadius: 6,
+        outline: isActive ? '2px solid #6366f1' : '2px solid transparent',
+        outlineOffset: 3,
+        transition: 'outline 0.15s',
+        padding: 2,
+        width: isFullWidth ? undefined : 'fit-content',
+      }}
+    >
+      {isActive && (
+        <>
+          <ElementToolbar
+            el={el}
+            index={index}
+            total={total}
+            onDuplicate={() => onDuplicate(el.id)}
+            onDelete={() => onDelete(el.id)}
+            onMoveUp={() => onReorder(index, index - 1)}
+            onMoveDown={() => onReorder(index, index + 1)}
+          />
+          <ResizeHandle direction="right" onResizeDelta={handleResizeW} />
+          <ResizeHandle direction="bottom" onResizeDelta={handleResizeH} />
+        </>
+      )}
+      {renderFreeElement(el, accentColor, textColor)}
+    </div>
+  )
+}
+
+function FreeElementsRenderer({ elements, accentColor, textColor, onPatchElements }: {
+  elements: FreeElement[]; accentColor: string; textColor: string
+  onPatchElements?: (newElements: FreeElement[]) => void
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  if (!elements || elements.length === 0) return null
+
+  const patchEl = (id: string, patch: Partial<FreeElement>) => {
+    if (!onPatchElements) return
+    onPatchElements(elements.map(e => e.id === id ? { ...e, ...patch } : e))
+  }
+
+  const duplicateEl = (id: string) => {
+    if (!onPatchElements) return
+    const src = elements.find(e => e.id === id)
+    if (!src) return
+    const clone = { ...src, id: `free-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, label: `${src.label} (хуулбар)` }
+    const idx = elements.findIndex(e => e.id === id)
+    const next = [...elements]
+    next.splice(idx + 1, 0, clone)
+    onPatchElements(next)
+    setSelectedId(clone.id)
+  }
+
+  const deleteEl = (id: string) => {
+    if (!onPatchElements) return
+    onPatchElements(elements.filter(e => e.id !== id))
+    if (selectedId === id) setSelectedId(null)
+  }
+
+  const reorderEl = (from: number, to: number) => {
+    if (!onPatchElements || to < 0 || to >= elements.length) return
+    const next = [...elements]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    onPatchElements(next)
+  }
+
+  return (
+    <div
+      style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}
+      onClick={e => { e.stopPropagation(); setSelectedId(null) }}
+    >
+      {elements.map((el, i) => (
+        <InteractiveFreeElement
+          key={el.id}
+          el={el}
+          index={i}
+          total={elements.length}
+          accentColor={accentColor}
+          textColor={textColor}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onPatch={patchEl}
+          onDuplicate={duplicateEl}
+          onDelete={deleteEl}
+          onReorder={reorderEl}
+        />
       ))}
     </div>
   )
@@ -219,7 +444,11 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
   }
 
   // ── Renders the free elements at the bottom of any block ──────────────────
-  const freeEls = <FreeElementsRenderer elements={elements} accentColor={accent} textColor={text} />
+  const handlePatchElements = useCallback((newEls: FreeElement[]) => {
+    if (onPatchProps) onPatchProps({ _elements: newEls })
+  }, [onPatchProps])
+
+  const freeEls = <FreeElementsRenderer elements={elements} accentColor={accent} textColor={text} onPatchElements={onPatchProps ? handlePatchElements : undefined} />
   
   const freeParts: Record<string, ReactNode> = {}
   elements.forEach((el) => {

@@ -144,43 +144,73 @@ function applySyncedNavCanonicalToPages(pages: PageDef[]): PageDef[] {
 // ─── Serialise pages → flat ComponentRecord list ───────────────────────────────
 function pagesToComponents(pages: PageDef[]) {
   return pages.flatMap(page =>
-    page.blocks.map(block => ({
-      instanceId: block.id,
-      pageRoute: page.path,
-      componentType: block.componentType,
-      parentId: null,
-      slot: null,
-      order: block.order,
-      props: block.props,
-      // store page meta in props for easy round-trip
-      _pageName: page.name,
-      _pageId: page.id,
-    }))
+    page.blocks.flatMap(block => {
+      const { _elements, ...restProps } = block.props || {}
+      
+      const parentRecord = {
+        instanceId: block.id,
+        pageRoute: page.path,
+        componentType: block.componentType,
+        parentId: null,
+        slot: null,
+        order: block.order,
+        props: { ...restProps, _pageName: page.name, _pageId: page.id },
+      }
+
+      const childRecords = (_elements || []).map((el: any, i: number) => ({
+        instanceId: el.id || `free-${Date.now()}-${i}`,
+        pageRoute: page.path,
+        componentType: `free_${el.type}`,
+        parentId: block.id,
+        slot: 'free',
+        order: i,
+        props: { ...el, _pageName: page.name, _pageId: page.id },
+      }))
+
+      return [parentRecord, ...childRecords]
+    })
   )
 }
 
 // ─── Deserialise flat list → pages ────────────────────────────────────────────
 function componentsToPages(components: any[]): PageDef[] {
   const pageMap = new Map<string, PageDef>()
-  for (const c of components) {
+  const parents = components.filter(c => !c.parentId)
+  const children = components.filter(c => c.parentId && c.slot === 'free')
+
+  for (const c of parents) {
     const path = c.pageRoute ?? '/'
-    const rawId = (c._pageId ?? path.replace(/\//g, '')) || 'home'
+    const rawId = (c.props?._pageId ?? path.replace(/\//g, '')) || 'home'
     const id = rawId || 'home'
-    const name =
-      c._pageName && String(c._pageName).trim()
-        ? String(c._pageName).trim()
-        : defaultPageDisplayName(path)
-    if (!pageMap.has(path)) pageMap.set(path, { id, name, path, blocks: [] })
+    const pageName = c.props?._pageName && String(c.props._pageName).trim()
+      ? String(c.props._pageName).trim()
+      : defaultPageDisplayName(path)
+
+    if (!pageMap.has(path)) pageMap.set(path, { id, name: pageName, path, blocks: [] })
+
+    const myChildren = children.filter(child => child.parentId === c.instanceId)
+    myChildren.sort((a, b) => (a.order || 0) - (b.order || 0))
+    const _elements = myChildren.map(child => {
+      const { _pageName, _pageId, ...elProps } = child.props || {}
+      return {
+        id: child.instanceId,
+        type: child.componentType.replace('free_', ''),
+        ...elProps
+      }
+    })
+
+    const { _pageName, _pageId, ...restProps } = c.props || {}
+
     pageMap.get(path)!.blocks.push({
       id: c.instanceId,
       componentType: c.componentType,
-      props: { ...(c.props as any) },
+      props: { ...restProps, _elements },
       order: c.order ?? 0,
     })
   }
   // sort blocks within each page
   const result = Array.from(pageMap.values())
-  for (const pg of result) pg.blocks.sort((a: BlockSection, b: BlockSection) => a.order - b.order)
+  for (const pg of result) pg.blocks.sort((a, b) => a.order - b.order)
   return result
 }
 
@@ -239,10 +269,10 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
             instanceId: c.instanceId,
             pageRoute: c.pageRoute,
             componentType: c.componentType,
-            parentId: null,
-            slot: null,
+            parentId: c.parentId,
+            slot: c.slot,
             order: c.order,
-            props: { ...c.props, _pageName: c._pageName, _pageId: c._pageId },
+            props: c.props,
           })
         )
       )
@@ -536,6 +566,50 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
                 </div>
               </div>
             ))}
+
+            {/* ── Current page blocks list ── */}
+            {blocks.length > 0 && (
+              <div className={`mt-4 pt-3 border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Хуудасны элементүүд</span>
+                <div className="space-y-1">
+                  {blocks.map((block, i) => {
+                    const reg = COMPONENT_REGISTRY.find(r => r.type === block.componentType)
+                    const Icon = reg?.icon || LayoutGrid
+                    const label = reg?.label || block.componentType
+                    const isSel = selectedBlockId === block.id
+                    const elCount = (block.props?._elements as any[])?.length || 0
+                    return (
+                      <div
+                        key={block.id}
+                        onClick={() => setSelectedBlockId(block.id)}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all group ${isSel
+                          ? (isDarkMode ? 'bg-indigo-900/50 text-indigo-300 ring-1 ring-indigo-500/40' : 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200')
+                          : (isDarkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50')
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-semibold truncate block leading-tight">{label}</span>
+                          {elCount > 0 && (
+                            <span className="text-[9px] text-slate-400 leading-tight">{elCount} элемент</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); removeBlock(block.id) }}
+                          className={`p-1 rounded-md transition-all ${isSel
+                            ? 'text-red-400 hover:bg-red-100 hover:text-red-600'
+                            : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500'
+                          }`}
+                          title="Устгах"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
