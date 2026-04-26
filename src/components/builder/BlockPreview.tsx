@@ -1,5 +1,5 @@
 'use client'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { BlockSection } from './templates'
 import { Image as ImageIcon, Package } from 'lucide-react'
 import { HeaderCanvasPreview } from './HeaderCanvasPreview'
@@ -196,9 +196,9 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
   function tryBlockCanvas(
     blockType: string,
     wrap: CSSProperties,
-    zoneParts: Record<string, React.ReactNode>,
-    after?: React.ReactNode,
-  ): React.ReactNode | null {
+    zoneParts: Record<string, ReactNode>,
+    after?: ReactNode,
+  ): ReactNode | null {
     if (!p.blockCanvas || !isBuilderBlockCanvasType(blockType)) return null
     const minH =
       typeof p.blockCanvasHeight === 'number' && p.blockCanvasHeight > 0
@@ -446,6 +446,22 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
 
   if (type === 'about') {
     const dir = p.align === 'right' ? 'row-reverse' : 'row'
+    const imageEl = p.hasImage ? (
+      <div style={{ width: 200, height: 200, background: text, opacity: 0.06, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <ImageIcon style={{ color: text, opacity: 0.22, width: 36, height: 36 }} />
+      </div>
+    ) : (
+      <div style={{ width: 120, height: 100, borderRadius: 12, border: `1px dashed ${text}20` }} />
+    )
+    const contentEl = (
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 160 }}>
+        <SkeletonLine w={220} h={28} color={text} mb={16} />
+        {[100, 95, 90, 80].map((w, i) => <SkeletonLine key={i} w={`${w}%`} h={11} color={text} mb={8} />)}
+        <div style={{ marginTop: 12, width: 130, height: 40, background: accent, borderRadius: p.btnRadius ?? 10, opacity: 0.85 }} />
+      </div>
+    )
+    const cv = tryBlockCanvas('about', { ...wrapStyle, display: 'block' }, { image: imageEl, content: contentEl }, freeEls)
+    if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', gap: 48, alignItems: 'center', flexDirection: dir as any }}>
@@ -463,6 +479,21 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
 
   if (type === 'services' || type === 'features') {
     const cols = p.columns || 3
+    const titleEl = <SkeletonLine w={260} h={28} color={text} mb={0} />
+    const gridEl = (
+      <div style={{ width: '100%', maxWidth: 520, display: 'grid', gridTemplateColumns: `repeat(${Math.min(cols, 3)},1fr)`, gap: 12 }}>
+        {Array.from({ length: Math.min(cols, 3) }).map((_, i) => (
+          <div key={i} style={{ background: p.cardBg || '#f8fafc', padding: 16, borderRadius: p.cardRadius ?? 14, display: 'flex', flexDirection: 'column', alignItems: 'center', border: `1px solid ${accent}20` }}>
+            <div style={{ width: 40, height: 40, background: accent, borderRadius: 10, marginBottom: 10, opacity: 0.8 }} />
+            <SkeletonLine w="65%" h={14} color={text} mb={8} />
+            <SkeletonLine w="100%" h={10} color={text} mb={4} />
+            <SkeletonLine w="85%" h={10} color={text} />
+          </div>
+        ))}
+      </div>
+    )
+    const cv = tryBlockCanvas(type, { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl }, freeEls)
+    if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <SkeletonLine w={260} h={28} color={text} mb={32} />
@@ -483,6 +514,23 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
 
   if (type === 'products') {
     const cols = p.columns || 3
+    const titleEl = <SkeletonLine w={220} h={28} color={text} mb={0} />
+    const gridEl = (
+      <div style={{ width: '100%', maxWidth: 520, display: 'grid', gridTemplateColumns: `repeat(${Math.min(cols, 3)},1fr)`, gap: 12 }}>
+        {Array.from({ length: Math.min(cols, 3) }).map((_, i) => (
+          <div key={i} style={{ background: p.cardBg || '#fff', borderRadius: p.cardRadius ?? 14, overflow: 'hidden', border: `1px solid ${accent}15` }}>
+            <div style={{ height: 72, background: text, opacity: 0.05 }} />
+            <div style={{ padding: 12 }}>
+              <SkeletonLine w="70%" h={12} color={text} mb={6} />
+              <SkeletonLine w="40%" h={14} color={accent} mb={8} />
+              <div style={{ height: 26, background: accent, borderRadius: 8, opacity: 0.8 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+    const cv = tryBlockCanvas('products', { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl }, freeEls)
+    if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <SkeletonLine w={220} h={28} color={text} mb={32} />
@@ -504,6 +552,26 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
   }
 
   if (type === 'pricing') {
+    const titleEl = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <SkeletonLine w={280} h={28} color={text} mb={0} />
+        <SkeletonLine w={400} h={13} color={text} mb={0} />
+      </div>
+    )
+    const gridEl = (
+      <div style={{ width: '100%', maxWidth: 480, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+        {[false, true, false].map((featured, i) => (
+          <div key={i} style={{ background: featured ? accent : (p.cardBg || '#f8fafc'), borderRadius: p.cardRadius ?? 14, padding: 14, border: featured ? 'none' : `1px solid ${accent}20`, transform: featured ? 'scale(1.02)' : 'none' }}>
+            <SkeletonLine w="50%" h={12} color={featured ? '#fff' : text} mb={6} />
+            <SkeletonLine w="60%" h={22} color={featured ? '#fff' : accent} mb={10} />
+            {[1, 2].map(j => <SkeletonLine key={j} w="85%" h={8} color={featured ? '#fff' : text} mb={6} />)}
+            <div style={{ height: 28, background: featured ? '#fff' : accent, borderRadius: 8, marginTop: 8, opacity: featured ? 0.9 : 0.8 }} />
+          </div>
+        ))}
+      </div>
+    )
+    const cv = tryBlockCanvas('pricing', { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl }, freeEls)
+    if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <SkeletonLine w={280} h={28} color={text} mb={12} />
