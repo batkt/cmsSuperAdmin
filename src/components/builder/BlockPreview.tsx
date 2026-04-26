@@ -592,6 +592,18 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
   }
 
   if (type === 'clients') {
+    const titleEl = <SkeletonLine w={240} h={26} color={text} mb={0} />
+    const gridEl = (
+      <div style={{ width: '100%', maxWidth: 480, display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} style={{ height: 44, background: p.cardBg || '#f1f5f9', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 56, height: 18, background: text, opacity: 0.14, borderRadius: 4 }} />
+          </div>
+        ))}
+      </div>
+    )
+    const cv = tryBlockCanvas('clients', { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl }, freeEls)
+    if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <SkeletonLine w={240} h={26} color={text} mb={32} />
@@ -608,6 +620,16 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
   }
 
   if (type === 'promo') {
+    const promoWrap = { ...wrapStyle, background: accent, display: 'block' as const }
+    const titleEl = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+        <SkeletonLine w={280} h={26} color="#fff" mb={0} />
+        <SkeletonLine w={360} h={12} color="#fff" mb={0} />
+      </div>
+    )
+    const ctaEl = <div style={{ width: 140, height: 44, background: '#fff', borderRadius: p.btnRadius ?? 12, opacity: 0.9 }} />
+    const cv = tryBlockCanvas('promo', promoWrap, { title: titleEl, cta: ctaEl }, freeEls)
+    if (cv) return cv
     return (
       <div style={{ ...wrapStyle, background: accent, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <SkeletonLine w={320} h={32} color="#fff" mb={12} />
