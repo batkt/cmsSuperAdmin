@@ -18,7 +18,7 @@ type Props = {
   ctaSep: boolean
   hasCta: boolean
   minH: number
-  freeEls: ReactNode
+  freeParts?: Record<string, ReactNode>
 }
 
 type DragState = {
@@ -41,7 +41,7 @@ export function HeaderCanvasPreview({
   ctaSep,
   hasCta,
   minH,
-  freeEls,
+  freeParts,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -66,15 +66,18 @@ export function HeaderCanvasPreview({
     e.stopPropagation()
     e.nativeEvent.stopImmediatePropagation?.()
     e.preventDefault()
-    const z = live[part]
+    const zPos = live[part] || { l: 10, t: 10 }
     setDrag({
       part,
-      startL: z.l,
-      startT: z.t,
+      startL: zPos.l,
+      startT: zPos.t,
       originX: e.clientX,
       originY: e.clientY,
     })
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    const target = e.target as HTMLElement
+    if (target.setPointerCapture) {
+      target.setPointerCapture(e.pointerId)
+    }
   }
 
   const onPointerMove = useCallback(
@@ -113,12 +116,15 @@ export function HeaderCanvasPreview({
 
   const z = live
 
-  const partStyle = (k: HeaderZoneKey, zi: number): React.CSSProperties => ({
-    position: 'absolute' as const,
-    left: `${z[k].l}%`,
-    top: `${z[k].t}%`,
-    zIndex: zi,
-  })
+  const partStyle = (k: HeaderZoneKey, zi: number): React.CSSProperties => {
+    const pos = z[k] || { l: 10, t: 10 }
+    return {
+      position: 'absolute' as const,
+      left: `${pos.l}%`,
+      top: `${pos.t}%`,
+      zIndex: zi,
+    }
+  }
 
   const showCta = hasCta && ctaBlock && ctaSep
   const navWrap = ctaSep ? (hasCta ? 55 : 65) : 60
@@ -204,10 +210,22 @@ export function HeaderCanvasPreview({
           style={{ width: 48, height: 28, borderRadius: 8, border: '1px solid #64748b55' }}
           title="Мобайл цэс (зөвхөн зураг)"
         />
-        </div>
       </div>
 
-      {freeEls}
+      {freeParts && Object.keys(freeParts).map((k, i) => (
+        <div
+          key={k}
+          style={partStyle(k, 20 + i * 2)}
+          onPointerDown={(e) => onPointerDown(k, e)}
+          className={isSelected && onPatch ? 'cursor-grab active:cursor-grabbing' : undefined}
+        >
+          <div className={isSelected && onPatch ? 'ring-1 ring-indigo-400/40 rounded' : undefined}>
+            {freeParts[k]}
+          </div>
+        </div>
+      ))}
+
+      </div>
     </div>
   )
 }

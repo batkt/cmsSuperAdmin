@@ -61,7 +61,10 @@ export function ZoneCanvasPreview({
       originX: e.clientX,
       originY: e.clientY,
     })
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    const target = e.target as HTMLElement
+    if (target.setPointerCapture) {
+      target.setPointerCapture(e.pointerId)
+    }
   }
 
   const onPointerMove = useCallback(
@@ -99,15 +102,18 @@ export function ZoneCanvasPreview({
   )
 
   const z = live
-  const keys = Object.keys(parts).filter((k) => z[k] != null)
+  const keys = Object.keys(parts)
 
-  const partStyle = (k: string, zi: number): React.CSSProperties => ({
-    position: 'absolute' as const,
-    left: `${z[k].l}%`,
-    top: `${z[k].t}%`,
-    zIndex: zi,
-    transform: 'translate(0, 0)',
-  })
+  const partStyle = (k: string, zi: number): React.CSSProperties => {
+    const pos = z[k] || { l: 10, t: 10 }
+    return {
+      position: 'absolute' as const,
+      left: `${pos.l}%`,
+      top: `${pos.t}%`,
+      zIndex: zi,
+      transform: 'translate(0, 0)',
+    }
+  }
 
   const stageStyle: React.CSSProperties = {
     position: 'relative' as const,

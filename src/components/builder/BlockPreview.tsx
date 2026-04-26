@@ -29,134 +29,162 @@ interface FreeElement {
   id: string; type: string; label: string; value?: string
   color?: string; bg?: string; radius?: number; size?: number
   width?: string; height?: number; placeholder?: string; align?: string
+  links?: unknown; href?: string; isExternal?: boolean
 }
 
-function FreeElementsRenderer({ elements, accentColor }: { elements: FreeElement[]; accentColor: string }) {
+
+
+function wrapLink(el: FreeElement, child: React.ReactNode) {
+  if (!el.href) return child
+  return (
+    <a href={el.href} target={el.isExternal ? '_blank' : undefined} rel={el.isExternal ? 'noopener noreferrer' : undefined} style={{ textDecoration: 'none' }}>
+      {child}
+    </a>
+  )
+}
+
+export function renderFreeElement(el: FreeElement, accentColor: string, textColor: string) {
+  switch (el.type) {
+    case 'text':
+      const textH = el.size ? el.size * 0.7 : 14
+      return wrapLink(el, 
+        <div style={{
+          width: el.width || '80%',
+          height: textH,
+          background: el.color || textColor,
+          opacity: 0.2,
+          borderRadius: 4,
+          margin: '4px 0'
+        }} />
+      )
+
+    case 'button':
+      return wrapLink(el,
+        <div style={{
+          width: el.width || 140,
+          height: 46,
+          background: el.bg || accentColor,
+          borderRadius: el.radius ?? 10,
+          opacity: 0.9,
+          display: 'inline-block'
+        }} />
+      )
+
+    case 'input':
+      return (
+        <div style={{
+          width: el.width || 200,
+          height: 46,
+          background: el.bg || textColor,
+          opacity: 0.08,
+          borderRadius: el.radius ?? 8,
+          border: `1px solid ${textColor}22`,
+          display: 'inline-block'
+        }} />
+      )
+
+    case 'image':
+      return wrapLink(el,
+        <div style={{
+          width: el.width || '100%',
+          height: el.height || 160,
+          background: textColor,
+          opacity: 0.06,
+          borderRadius: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <ImageIcon style={{ width: 36, height: 36, opacity: 0.25, color: textColor }} />
+        </div>
+      )
+
+    case 'card':
+      return wrapLink(el,
+        <div style={{
+          width: el.width || '100%',
+          height: el.height || 120,
+          background: el.bg || '#ffffff',
+          borderRadius: el.radius ?? 12,
+          border: `1px solid ${textColor}15`,
+          boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: 0.8,
+        }}>
+          <div style={{ width: '40%', height: 12, background: textColor, opacity: 0.15, borderRadius: 4 }} />
+        </div>
+      )
+
+    case 'section':
+      return (
+        <div style={{
+          width: el.width || '100%',
+          height: el.height || 80,
+          background: el.bg || textColor,
+          opacity: 0.03,
+          borderRadius: 8,
+          border: `1px dashed ${textColor}33`,
+        }} />
+      )
+
+    case 'divider':
+      return (
+        <div style={{
+          width: el.width || '100%',
+          height: el.height || 1,
+          background: el.color || textColor,
+          opacity: 0.15,
+          borderRadius: 99,
+          margin: '12px 0',
+        }} />
+      )
+
+    case 'badge':
+      return wrapLink(el,
+        <div style={{ display: 'flex' }}>
+          <div style={{
+            width: el.width || 60,
+            height: 20,
+            background: el.bg || accentColor,
+            borderRadius: el.radius ?? 999,
+            opacity: 0.8,
+            display: 'inline-block',
+          }} />
+        </div>
+      )
+
+    case 'menu':
+      const navLinks = Array.isArray(el.links) ? el.links : []
+      if (navLinks.length === 0) {
+        return <span style={{ fontSize: 11, color: textColor, opacity: 0.35, fontStyle: 'italic' }}>Цэс хоосон</span>
+      }
+      return (
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: el.align as any || 'center' }}>
+          {navLinks.map((link: any, i: number) => (
+            <div
+              key={i}
+              style={{
+                width: 48,
+                height: el.size ? el.size * 0.7 : 12,
+                background: el.color || textColor,
+                opacity: 0.2,
+                borderRadius: 4,
+              }}
+            />
+          ))}
+        </div>
+      )
+
+    default:
+      return null
+  }
+}
+
+function FreeElementsRenderer({ elements, accentColor, textColor }: { elements: FreeElement[]; accentColor: string; textColor: string }) {
   if (!elements || elements.length === 0) return null
   return (
     <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-      {elements.map(el => {
-        switch (el.type) {
-          case 'text':
-            return (
-              <div key={el.id} style={{
-                color: el.color || '#1e293b', fontSize: el.size || 16,
-                textAlign: (el.align as any) || 'left', fontWeight: 400,
-                padding: '2px 0', opacity: 0.85,
-              }}>
-                {el.value || el.label}
-              </div>
-            )
-
-          case 'button':
-            return (
-              <div key={el.id} style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: el.bg || accentColor,
-                color: el.color || '#fff',
-                borderRadius: el.radius ?? 10,
-                fontSize: el.size || 14,
-                fontWeight: 600,
-                padding: '10px 24px',
-                cursor: 'default',
-                alignSelf: 'flex-start',
-                boxShadow: `0 2px 8px ${(el.bg || accentColor)}40`,
-              }}>
-                {el.value || el.label}
-              </div>
-            )
-
-          case 'input':
-            return (
-              <div key={el.id} style={{
-                background: el.bg || '#f1f5f9',
-                borderRadius: el.radius ?? 8,
-                border: '1px solid #e2e8f0',
-                padding: '10px 14px',
-                fontSize: 13,
-                color: '#94a3b8',
-                cursor: 'default',
-              }}>
-                {el.placeholder || el.label}
-              </div>
-            )
-
-          case 'image':
-            return (
-              <div key={el.id} style={{
-                width: el.width || '100%',
-                height: el.height || 200,
-                background: '#e2e8f0',
-                borderRadius: 8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#94a3b8', fontSize: 12,
-                border: '1px dashed #cbd5e1',
-              }}>
-                <ImageIcon style={{ width: 28, height: 28, opacity: 0.4 }} />
-              </div>
-            )
-
-          case 'card':
-            return (
-              <div key={el.id} style={{
-                background: el.bg || '#ffffff',
-                borderRadius: el.radius ?? 12,
-                height: el.height || 120,
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#94a3b8', fontSize: 12,
-              }}>
-                {el.label}
-              </div>
-            )
-
-          case 'section':
-            return (
-              <div key={el.id} style={{
-                background: el.bg || '#f8fafc',
-                height: el.height || 80,
-                borderRadius: 8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#94a3b8', fontSize: 12,
-                border: '1px dashed #e2e8f0',
-              }}>
-                {el.label}
-              </div>
-            )
-
-          case 'divider':
-            return (
-              <div key={el.id} style={{
-                width: '100%',
-                height: el.height || 1,
-                background: el.color || '#e2e8f0',
-                borderRadius: 99,
-                margin: '4px 0',
-              }} />
-            )
-
-          case 'badge':
-            return (
-              <div key={el.id} style={{ display: 'flex' }}>
-                <span style={{
-                  background: el.bg || accentColor,
-                  color: el.color || '#fff',
-                  borderRadius: el.radius ?? 999,
-                  fontSize: el.size || 11,
-                  fontWeight: 700,
-                  padding: '3px 10px',
-                  display: 'inline-block',
-                }}>
-                  {el.value || el.label}
-                </span>
-              </div>
-            )
-
-          default:
-            return null
-        }
-      })}
+      {elements.map(el => (
+        <div key={el.id}>{renderFreeElement(el, accentColor, textColor)}</div>
+      ))}
     </div>
   )
 }
@@ -191,7 +219,12 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
   }
 
   // ── Renders the free elements at the bottom of any block ──────────────────
-  const freeEls = <FreeElementsRenderer elements={elements} accentColor={accent} />
+  const freeEls = <FreeElementsRenderer elements={elements} accentColor={accent} textColor={text} />
+  
+  const freeParts: Record<string, ReactNode> = {}
+  elements.forEach((el) => {
+    freeParts[`free_${el.id}`] = renderFreeElement(el, accent, text)
+  })
 
   function tryBlockCanvas(
     blockType: string,
@@ -214,7 +247,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
             isSelected={!!isSelected}
             onPatch={onPatchProps}
             minH={minH}
-            parts={zoneParts}
+            parts={{ ...zoneParts, ...freeParts }}
           />
         </div>
         {after}
@@ -280,7 +313,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
             ctaSep={ctaSep}
             hasCta={!!p.button}
             minH={typeof p.headerCanvasHeight === 'number' && p.headerCanvasHeight > 0 ? p.headerCanvasHeight : 88}
-            freeEls={elements.length > 0 ? <div style={{ width: '100%' }}>{freeEls}</div> : <></>}
+            freeParts={freeParts}
           />
         </div>
       )
@@ -425,8 +458,8 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
     const cv = tryBlockCanvas(
       'hero',
       { ...wrapStyle, display: 'block', textAlign: align as any },
-      { media: mediaEl, title: titleEl, subtitle: subtitleEl, cta: ctaEl },
-      freeEls,
+      { media: mediaEl, title: titleEl, subtitle: subtitleEl, cta: ctaEl }
+      // no after passed, since free elements are inside the canvas
     )
     if (cv) return cv
     return (
@@ -460,7 +493,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
         <div style={{ marginTop: 12, width: 130, height: 40, background: accent, borderRadius: p.btnRadius ?? 10, opacity: 0.85 }} />
       </div>
     )
-    const cv = tryBlockCanvas('about', { ...wrapStyle, display: 'block' }, { image: imageEl, content: contentEl }, freeEls)
+    const cv = tryBlockCanvas('about', { ...wrapStyle, display: 'block' }, { image: imageEl, content: contentEl })
     if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column' }}>
@@ -492,7 +525,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
         ))}
       </div>
     )
-    const cv = tryBlockCanvas(type, { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl }, freeEls)
+    const cv = tryBlockCanvas(type, { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl })
     if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -529,7 +562,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
         ))}
       </div>
     )
-    const cv = tryBlockCanvas('products', { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl }, freeEls)
+    const cv = tryBlockCanvas('products', { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl })
     if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -570,7 +603,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
         ))}
       </div>
     )
-    const cv = tryBlockCanvas('pricing', { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl }, freeEls)
+    const cv = tryBlockCanvas('pricing', { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl })
     if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -602,7 +635,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
         ))}
       </div>
     )
-    const cv = tryBlockCanvas('clients', { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl }, freeEls)
+    const cv = tryBlockCanvas('clients', { ...wrapStyle, display: 'block' }, { title: titleEl, grid: gridEl })
     if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -628,7 +661,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
       </div>
     )
     const ctaEl = <div style={{ width: 140, height: 44, background: '#fff', borderRadius: p.btnRadius ?? 12, opacity: 0.9 }} />
-    const cv = tryBlockCanvas('promo', promoWrap, { title: titleEl, cta: ctaEl }, freeEls)
+    const cv = tryBlockCanvas('promo', promoWrap, { title: titleEl, cta: ctaEl })
     if (cv) return cv
     return (
       <div style={{ ...wrapStyle, background: accent, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -649,7 +682,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
         <div style={{ height: 40, background: accent, borderRadius: 10, opacity: 0.85 }} />
       </div>
     )
-    const cv = tryBlockCanvas('contact', { ...wrapStyle, display: 'block' }, { title: titleEl, form: formEl }, freeEls)
+    const cv = tryBlockCanvas('contact', { ...wrapStyle, display: 'block' }, { title: titleEl, form: formEl })
     if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -672,7 +705,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
       </div>
     )
     const copyEl = <SkeletonLine w={200} h={9} color={text} />
-    const cv = tryBlockCanvas('footer', { ...wrapStyle, display: 'block' }, { brand: brandEl, links: linksEl, copy: copyEl }, freeEls)
+    const cv = tryBlockCanvas('footer', { ...wrapStyle, display: 'block' }, { brand: brandEl, links: linksEl, copy: copyEl })
     if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: p.align === 'left' ? 'flex-start' : 'center', gap: 12 }}>

@@ -11,7 +11,7 @@ import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from 'lucide-react
 
 // ─── Element types the super admin can add freely ─────────────────────────────
 
-type ElementType = 'text' | 'button' | 'image' | 'section' | 'card' | 'input' | 'divider' | 'badge'
+type ElementType = 'text' | 'button' | 'image' | 'section' | 'card' | 'input' | 'divider' | 'badge' | 'menu'
 
 interface FreeElement {
   id: string
@@ -26,6 +26,9 @@ interface FreeElement {
   height?: number
   placeholder?: string
   align?: string
+  links?: unknown
+  href?: string
+  isExternal?: boolean
 }
 
 const ELEMENT_DEFAULTS: Record<ElementType, Partial<FreeElement>> = {
@@ -37,11 +40,12 @@ const ELEMENT_DEFAULTS: Record<ElementType, Partial<FreeElement>> = {
   input:   { label: 'Оруулах талбар', placeholder: 'Энд бичнэ...', bg: '#f1f5f9', radius: 8 },
   divider: { label: 'Зааглагч', color: '#e2e8f0', height: 1 },
   badge:   { label: 'Таг', value: 'Шинэ', color: '#ffffff', bg: '#6366f1', radius: 999, size: 11 },
+  menu:    { label: 'Цэс', links: [], size: 14, align: 'center', color: '#1e293b' },
 }
 
 const ELEMENT_ICONS: Record<ElementType, string> = {
   text: 'T', button: '⬜', image: '🖼', section: '▤',
-  card: '🃏', input: '✏', divider: '─', badge: '🏷',
+  card: '🃏', input: '✏', divider: '─', badge: '🏷', menu: '☰',
 }
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
@@ -110,10 +114,10 @@ const SHADOWS = [{ value: 'none', label: 'Байхгүй' },{ value: 'sm', label
 
 // ─── Free Elements Panel ──────────────────────────────────────────────────────
 
-function ElementEditor({ el, onChange, onDelete, onMove, isFirst, isLast }: {
+function ElementEditor({ el, onChange, onDelete, onMove, isFirst, isLast, pages }: {
   el: FreeElement; onChange: (u: Partial<FreeElement>) => void
   onDelete: () => void; onMove: (d: 'up' | 'down') => void
-  isFirst: boolean; isLast: boolean
+  isFirst: boolean; isLast: boolean; pages?: PageDef[]
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -173,11 +177,40 @@ function ElementEditor({ el, onChange, onDelete, onMove, isFirst, isLast }: {
             <Slider label="Өндөр (px)" value={el.height ?? 100} min={1} max={800} step={4} onChange={v => onChange({ height: v })} />
           )}
 
+          {(el.type === 'image' || el.type === 'card' || el.type === 'section' || el.type === 'button') && (
+            <Row label="Өргөн (%)">
+              <Slider label="Өргөн (%)" value={parseInt((el.width || '100').replace('%', '')) || 100} min={10} max={100} step={5} onChange={v => onChange({ width: `${v}%` })} />
+            </Row>
+          )}
+
           {(el.type === 'text') && (
             <Row label="Тэгшитгэл">
               <Select value={el.align || 'left'} onChange={v => onChange({ align: v })}
                 options={[{ value: 'left', label: 'Зүүн' }, { value: 'center', label: 'Төв' }, { value: 'right', label: 'Баруун' }]} />
             </Row>
+          )}
+
+          {(el.type === 'menu') && (
+            <div className="pt-2 border-t border-slate-100">
+              <NavLinksPanel links={el.links} onChange={v => onChange({ links: v })} pages={pages || []} />
+            </div>
+          )}
+
+          {(el.type === 'button' || el.type === 'image' || el.type === 'text' || el.type === 'card' || el.type === 'badge') && (
+            <>
+              <div className="pt-2 mt-2 border-t border-slate-100"></div>
+              <Row label="Холбоос (Link/URL)">
+                <input value={el.href || ''} onChange={e => onChange({ href: e.target.value })}
+                  placeholder="/about эсвэл #section-id"
+                  className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+              </Row>
+              <Row label="Шинэ таб-д нээх">
+                <div className="flex items-center gap-2 mt-1">
+                  <Toggle checked={!!el.isExternal} onChange={v => onChange({ isExternal: v })} />
+                  <span className="text-xs text-slate-400">{el.isExternal ? 'Тийм' : 'Үгүй'}</span>
+                </div>
+              </Row>
+            </>
           )}
         </div>
       )}
@@ -194,9 +227,10 @@ const ELEMENT_TYPES: { type: ElementType; label: string }[] = [
   { type: 'section', label: 'Секц' },
   { type: 'divider', label: 'Зааглагч' },
   { type: 'badge',   label: 'Таг' },
+  { type: 'menu',    label: 'Цэс' },
 ]
 
-function FreeElementsPanel({ elements, onChange }: { elements: FreeElement[]; onChange: (els: FreeElement[]) => void }) {
+function FreeElementsPanel({ elements, onChange, pages }: { elements: FreeElement[]; onChange: (els: FreeElement[]) => void; pages?: PageDef[] }) {
   const [showPicker, setShowPicker] = useState(false)
 
   const add = (type: ElementType) => {
@@ -220,7 +254,7 @@ function FreeElementsPanel({ elements, onChange }: { elements: FreeElement[]; on
   return (
     <div className="space-y-2">
       {elements.map((el, i) => (
-        <ElementEditor key={el.id} el={el}
+        <ElementEditor key={el.id} el={el} pages={pages}
           onChange={p => update(el.id, p)}
           onDelete={() => remove(el.id)}
           onMove={d => move(i, d)}
@@ -661,7 +695,7 @@ export function Inspector({
 
       {/* ── FREE ELEMENTS ── */}
       <SectionLabel title="Чөлөөт элементүүд" />
-      <FreeElementsPanel elements={elements} onChange={setElements} />
+      <FreeElementsPanel elements={elements} onChange={setElements} pages={pages} />
 
       <div className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 rounded-xl px-3 py-2 border border-slate-100 mt-2">
         Текст, контент болон зургийг харилцагчийн Admin CMS-ээс оруулна. Та энд зөвхөн бүтэц, загвар, өнгөний тохиргоо хийнэ.

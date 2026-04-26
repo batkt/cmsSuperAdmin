@@ -87,6 +87,13 @@ export function mergeBlockCanvasZones(
   for (const k of Object.keys(base)) {
     out[k] = { ...base[k], ...(input?.[k] as CanvasZonePos | undefined) }
   }
+  if (input) {
+    for (const k of Object.keys(input)) {
+      if (!out[k] && typeof input[k] === 'object') {
+        out[k] = input[k] as CanvasZonePos
+      }
+    }
+  }
   return out
 }
 
