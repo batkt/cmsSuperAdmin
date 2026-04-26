@@ -506,7 +506,7 @@ export function Inspector({
       {type === 'header' && <>
         <SectionLabel title="Байрлал" />
         <p className="text-[10px] text-slate-500 leading-relaxed -mt-1 mb-1">
-          Canvas асаах/унтраах: дээд талын мөр — <span className="font-semibold">Загвар сонгох</span> ба харагдах хэмжээний хажууд.
+          Толгойд Canvas асаах/унтраах: дээд мөр — <span className="font-semibold">Загвар сонгох</span> ба харагдах хэмжээ.
         </p>
         {p.headerCanvas && (
           <>

@@ -641,6 +641,16 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
   }
 
   if (type === 'contact') {
+    const titleEl = <SkeletonLine w={240} h={26} color={text} mb={0} />
+    const formEl = (
+      <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {[1, 2, 3].map(i => <div key={i} style={{ height: 38, background: p.cardBg || '#f1f5f9', borderRadius: 8, border: `1px solid ${accent}18` }} />)}
+        <div style={{ height: 72, background: p.cardBg || '#f1f5f9', borderRadius: 8, border: `1px solid ${accent}18` }} />
+        <div style={{ height: 40, background: accent, borderRadius: 10, opacity: 0.85 }} />
+      </div>
+    )
+    const cv = tryBlockCanvas('contact', { ...wrapStyle, display: 'block' }, { title: titleEl, form: formEl }, freeEls)
+    if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <SkeletonLine w={240} h={26} color={text} mb={32} />
@@ -655,6 +665,15 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
   }
 
   if (type === 'footer') {
+    const brandEl = <div style={{ width: 100, height: 22, background: accent, opacity: 0.85, borderRadius: 6 }} />
+    const linksEl = (
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        {[70, 64, 72, 58].map((w, i) => <SkeletonLine key={i} w={w} h={10} color={text} />)}
+      </div>
+    )
+    const copyEl = <SkeletonLine w={200} h={9} color={text} />
+    const cv = tryBlockCanvas('footer', { ...wrapStyle, display: 'block' }, { brand: brandEl, links: linksEl, copy: copyEl }, freeEls)
+    if (cv) return cv
     return (
       <div style={{ ...wrapStyle, display: 'flex', flexDirection: 'column', alignItems: p.align === 'left' ? 'flex-start' : 'center', gap: 12 }}>
         <div style={{ width: 120, height: 24, background: accent, opacity: 0.8, borderRadius: 6 }} />
