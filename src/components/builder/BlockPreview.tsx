@@ -6,6 +6,7 @@ import { Image as ImageIcon, Package, Copy, Trash2, MoveVertical, ArrowUp, Arrow
 import { HeaderCanvasPreview } from './HeaderCanvasPreview'
 import { ZoneCanvasPreview } from './ZoneCanvasPreview'
 import { defaultBlockCanvasHeight, isBuilderBlockCanvasType } from './sectionCanvasDefaults'
+import { resolveDisplayImageUrl } from '@/lib/resolveDisplayImageUrl'
 
 function pxFromSizeProp(v: unknown, fallback: number): number {
   if (typeof v === 'number' && Number.isFinite(v)) return v
@@ -30,6 +31,7 @@ interface FreeElement {
   id: string; type: string; label: string; value?: string
   color?: string; bg?: string; radius?: number; size?: number
   width?: string; height?: number; placeholder?: string; align?: string
+  src?: string
   links?: unknown; href?: string; isExternal?: boolean
   x?: number; y?: number
 }
@@ -85,7 +87,25 @@ export function renderFreeElement(el: FreeElement, accentColor: string, textColo
         }} />
       )
 
-    case 'image':
+    case 'image': {
+      const displaySrc = el.src ? resolveDisplayImageUrl(el.src) : ''
+      if (displaySrc) {
+        return wrapLink(el,
+          <img
+            src={displaySrc}
+            alt={el.label || ''}
+            referrerPolicy="no-referrer"
+            style={{
+              width: (el.width as string | number | undefined) || '100%',
+              maxHeight: el.height || 160,
+              height: 'auto',
+              objectFit: 'contain',
+              borderRadius: 12,
+              display: 'block',
+            }}
+          />,
+        )
+      }
       return wrapLink(el,
         <div style={{
           width: el.width || '100%',
@@ -98,6 +118,7 @@ export function renderFreeElement(el: FreeElement, accentColor: string, textColo
           <ImageIcon style={{ width: 36, height: 36, opacity: 0.25, color: textColor }} />
         </div>
       )
+    }
 
     case 'card':
       return wrapLink(el,
