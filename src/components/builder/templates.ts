@@ -357,7 +357,7 @@ function brandedPages(
     },
     {
       id: "contact",
-      name: "Саналын хүсэлт",
+      name: "Санал хүсэлт",
       path: "/contact",
       blocks: [
         {
@@ -616,7 +616,7 @@ export const TEMPLATE_MEDEELEL: Template = {
   name: "Мэдээлэл Загвар",
   nameEn: "Info / Corporate",
   description:
-    "Танилцуулга, харилцагчид, үнийн санал, мэдэгдэл, саналын хүсэлт.",
+    "Танилцуулга, харилцагчид, үнийн санал, мэдэгдэл, санал хүсэлт.",
   category: "info",
   color: "#0ea5e9",
   gradient: "linear-gradient(135deg,#0ea5e9,#0284c7)",
@@ -729,7 +729,7 @@ export const TEMPLATE_MEDEELEL: Template = {
     },
     {
       id: "contact",
-      name: "Саналын хүсэлт",
+      name: "Санал хүсэлт",
       path: "/contact",
       blocks: [
         {
@@ -784,7 +784,7 @@ export const TEMPLATE_RENTLY: Template = {
   name: "Rently",
   nameEn: "Rently — Rental Platform",
   description:
-    "Түрээсийн платформ — орчин үеийн харанхуй ногоон загвар. Танилцуулга, харилцагчид, үнийн санал, саналын хүсэлт, видео промо.",
+    "Түрээсийн платформ — орчин үеийн харанхуй ногоон загвар. Танилцуулга, харилцагчид, үнийн санал, санал хүсэлт, видео промо.",
   category: "rental",
   color: "#10b981",
   gradient: "linear-gradient(135deg,#10b981,#065f46)",
@@ -887,21 +887,36 @@ export const TEMPLATE_PARKEASE: Template = {
 export const TEMPLATE_ZEVTABS: Template = {
   id: "zevtabs",
   name: "Zevtabs",
-  nameEn: "Zevtabs — Modern Classy",
+  nameEn: "Zevtabs — Clean iOS Style",
   description:
-    "Гоёмсог, орчин үеийн корпорацийн болон статик вэб загвар. Бүх төрлийн үйлчилгээнд тохиромжтой.",
+    "Гоёмсог, орчин үеийн, минималист iOS загвар. Маш цэвэрхэн, хурдан, премиум мэдрэмж төрүүлнэ.",
   category: "static",
-  color: "#4f46e5",
-  gradient: "linear-gradient(135deg,#4f46e5,#312e81)",
+  color: "#007aff",
+  gradient: "linear-gradient(135deg,#007aff,#5856d6)",
   pages: brandedPages(
     "zv",
-    "#4f46e5",
-    "#ffffff",
-    "#0f172a",
-    "#f8fafc",
-    "Inter",
+    "#007aff", // iOS Blue Accent
+    "#f5f5f7", // Apple Signature Gray Background
+    "#1d1d1f", // Apple Signature Dark Text
+    "#ffffff", // Pure White Cards
+    "Inter",   // SF Pro alternative
     false,
-  ),
+  ).map(page => ({
+    ...page,
+    blocks: page.blocks.map(block => {
+      const p: Record<string, any> = { ...block.props };
+      // Inject Apple/iOS 26 aesthetics
+      if (p.cardRadius !== undefined) p.cardRadius = 28; // Very rounded soft cards
+      if (p.cardShadow !== undefined) p.cardShadow = "sm"; // Subtle, very soft shadows
+      if (p.btnRadius !== undefined) p.btnRadius = 999; // Pill-shaped Apple buttons
+      if (block.componentType === "header") {
+        p.sticky = true; // Floating header feel
+        p.shadowSize = "sm";
+        p.borderBottom = false;
+      }
+      return { ...block, props: p };
+    })
+  })),
 };
 
 // ─── All templates list ────────────────────────────────────────────────────────
