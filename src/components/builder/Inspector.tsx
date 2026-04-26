@@ -1,6 +1,12 @@
 'use client'
 import { useState } from 'react'
-import { BlockSection } from './templates'
+import { BlockSection, type PageDef, defaultPageDisplayName, normalizePagePath } from './templates'
+import { DEFAULT_HEADER_ZONES } from './headerCanvasDefaults'
+import {
+  defaultBlockCanvasHeight,
+  isBuilderBlockCanvasType,
+  mergeBlockCanvasZones,
+} from './sectionCanvasDefaults'
 import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
 
 // ─── Element types the super admin can add freely ─────────────────────────────
@@ -75,12 +81,12 @@ function Slider({ label, value, min, max, step = 1, onChange }: {
   )
 }
 
-function Select({ value, onChange, options }: {
-  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]
+function Select({ value, onChange, options, disabled }: {
+  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; disabled?: boolean
 }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)}
-      className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+    <select value={value} onChange={e => onChange(e.target.value)} disabled={disabled}
+      className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed">
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )
@@ -245,20 +251,192 @@ function FreeElementsPanel({ elements, onChange }: { elements: FreeElement[]; on
   )
 }
 
+// ─── Header nav links (persisted as props.links → DB / public Header) ─────────
+
+type NavLinkRow = { label: string; href: string; isExternal?: boolean }
+
+const GENERIC_PAGE_NAMES = new Set(['хуудас', 'холбоос', 'link', 'page', 'menu', ''])
+
+/** Label for a nav row after picking a project page (matches dropdown intent). */
+function pageNavLabel(pg: PageDef | undefined, hrefPath: string): string {
+  const route = normalizePagePath(hrefPath)
+  if (!pg) return defaultPageDisplayName(route)
+  const n = (pg.name || '').trim()
+  if (n && !GENERIC_PAGE_NAMES.has(n.toLowerCase())) return n
+  return defaultPageDisplayName(normalizePagePath(pg.path))
+}
+
+function normalizeNavLinks(raw: unknown): NavLinkRow[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((x: any) => ({
+    label: String(x?.label ?? '').trim(),
+    href: String(x?.href ?? '/').trim() || '/',
+    isExternal: !!x?.isExternal,
+  }))
+}
+
+function NavLinksPanel({
+  links,
+  onChange,
+  pages,
+}: {
+  links: unknown
+  onChange: (next: NavLinkRow[]) => void
+  pages: PageDef[]
+}) {
+  const list = normalizeNavLinks(links)
+  const push = (next: NavLinkRow[]) => onChange(next)
+
+  const update = (i: number, patch: Partial<NavLinkRow>) => {
+    const n = [...list]
+    n[i] = { ...n[i], ...patch }
+    push(n)
+  }
+  const add = () => {
+    const pg = pages[0]
+    if (pg) {
+      const path = normalizePagePath(pg.path)
+      push([...list, { label: pageNavLabel(pg, path), href: path, isExternal: false }])
+    } else {
+      push([...list, { label: defaultPageDisplayName('/'), href: '/', isExternal: false }])
+    }
+  }
+
+  const internalPathForLink = (href: string) => {
+    const h = normalizePagePath(href)
+    return pages.some((pg) => normalizePagePath(pg.path) === h) ? h : ''
+  }
+  const remove = (i: number) => push(list.filter((_, j) => j !== i))
+  const move = (i: number, dir: 'up' | 'down') => {
+    const j = dir === 'up' ? i - 1 : i + 1
+    if (j < 0 || j >= list.length) return
+    const n = [...list]
+    ;[n[i], n[j]] = [n[j], n[i]]
+    push(n)
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Цэсийн холбоосууд</label>
+      {list.map((link, i) => (
+        <div key={i} className="rounded-lg border border-slate-200 bg-white p-2.5 space-y-2 shadow-sm">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] font-mono text-slate-400">#{i + 1}</span>
+            <div className="flex items-center gap-0.5">
+              <button type="button" onClick={() => move(i, 'up')} disabled={i === 0}
+                className="p-1 hover:bg-slate-100 rounded text-slate-400 disabled:opacity-25"><ChevronUp className="w-3 h-3" /></button>
+              <button type="button" onClick={() => move(i, 'down')} disabled={i === list.length - 1}
+                className="p-1 hover:bg-slate-100 rounded text-slate-400 disabled:opacity-25"><ChevronDown className="w-3 h-3" /></button>
+              <button type="button" onClick={() => remove(i)}
+                className="p-1 hover:bg-red-50 text-red-400 rounded"><Trash2 className="w-3 h-3" /></button>
+            </div>
+          </div>
+          <Row label="Текст (цэс дээр)">
+            <input type="text" value={link.label} onChange={e => update(i, { label: e.target.value })}
+              placeholder="Нүүр"
+              className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+          </Row>
+          {pages.length > 0 && (
+            <Row label="Төслийн хуудас">
+              <select
+                className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                value={internalPathForLink(link.href)}
+                onChange={(e) => {
+                  const path = e.target.value
+                  if (!path) return
+                  const hrefNorm = normalizePagePath(path)
+                  const pg = pages.find((p) => normalizePagePath(p.path) === hrefNorm)
+                  update(i, {
+                    href: hrefNorm,
+                    isExternal: false,
+                    label: pageNavLabel(pg, hrefNorm),
+                  })
+                }}
+              >
+                <option value="">— Хуудас сонгох (нэр + зам) —</option>
+                {pages.map((pg) => (
+                  <option key={pg.id} value={normalizePagePath(pg.path)}>
+                    {pageNavLabel(pg, pg.path)} · {normalizePagePath(pg.path)}
+                  </option>
+                ))}
+              </select>
+            </Row>
+          )}
+          <Row label="Хаяг (href)">
+            <input type="text" value={link.href} onChange={e => update(i, { href: e.target.value })}
+              placeholder="/about эсвэл https://…"
+              className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+          </Row>
+          <Row label="Гадны сайт">
+            <div className="flex items-center gap-2">
+              <Toggle checked={!!link.isExternal} onChange={v => update(i, { isExternal: v })} />
+              <span className="text-xs text-slate-400">{link.isExternal ? 'Шинэ таб' : 'Дотоод'}</span>
+            </div>
+          </Row>
+        </div>
+      ))}
+      <button type="button" onClick={add}
+        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 text-xs font-bold transition-all">
+        <Plus className="w-3.5 h-3.5" /> Цэсийн зүйл нэмэх
+      </button>
+    </div>
+  )
+}
+
 // ─── Main Inspector ───────────────────────────────────────────────────────────
 
-export function Inspector({ block, onChange }: { block: BlockSection; onChange: (p: Record<string, any>) => void }) {
+export function Inspector({
+  block,
+  onChange,
+  pages = [],
+}: {
+  block: BlockSection
+  onChange: (p: Record<string, any>) => void
+  pages?: PageDef[]
+}) {
   const p = block.props || {}
-  const s = (k: string, v: any) => onChange({ ...p, [k]: v })
+  const patch = (partial: Record<string, any>) => onChange({ ...(block.props || {}), ...partial })
+  const s = (k: string, v: any) => patch({ [k]: v })
   const type = block.componentType
   const elements: FreeElement[] = p._elements || []
-  const setElements = (els: FreeElement[]) => s('_elements', els)
+  const setElements = (els: FreeElement[]) => patch({ _elements: els })
 
   return (
     <div className="p-4 space-y-3 text-slate-700">
       <div className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
         {type} — Тохиргоо
       </div>
+
+      {type === 'header' && (
+        <>
+          <SectionLabel title="Толгой болон цэс" />
+          <Row label="Цэсийн нийлүүлэлт">
+            <div className="flex items-center gap-2">
+              <Toggle
+                checked={p.headerNavIndependent !== true}
+                onChange={(syncAllPages) => s('headerNavIndependent', !syncAllPages)}
+              />
+              <span className="text-xs text-slate-500">
+                {p.headerNavIndependent === true
+                  ? 'Зөвхөн энэ хуудас — бусад руу тархахгүй'
+                  : 'Бүх хуудсанд автомат — нэр, холбоосыг нэг дор засна'}
+              </span>
+            </div>
+          </Row>
+          <Row label="Сайтын нэр (лого текст)">
+            <input
+              type="text"
+              value={String(p.title ?? '')}
+              onChange={(e) => s('title', e.target.value)}
+              placeholder="Жишээ: My Brand"
+              className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            />
+          </Row>
+          <NavLinksPanel links={p.links} onChange={(links) => patch({ links })} pages={pages} />
+          <Slider label="Лого текстийн хэмжээ (px)" value={p.fontSize ?? 20} min={12} max={36} step={1} onChange={v => s('fontSize', v)} />
+          <Slider label="Цэсийн текстийн хэмжээ (px)" value={p.navFontSize ?? 14} min={10} max={22} step={1} onChange={v => s('navFontSize', v)} />
+        </>
+      )}
 
       {/* ── Colors ── */}
       <SectionLabel title="Өнгө" />
@@ -280,7 +458,9 @@ export function Inspector({ block, onChange }: { block: BlockSection; onChange: 
       {['services','features','products','pricing','clients','contact','about'].includes(type) && (
         <Slider label="Гарчгийн хэмжээ" value={p.titleSize || 34} min={16} max={64} onChange={v => s('titleSize', v)} />
       )}
-      <Slider label="Текстийн хэмжээ" value={p.fontSize || 16} min={10} max={32} onChange={v => s('fontSize', v)} />
+      {type !== 'header' && (
+        <Slider label="Текстийн хэмжээ" value={p.fontSize || 16} min={10} max={32} onChange={v => s('fontSize', v)} />
+      )}
 
       {/* ── Spacing ── */}
       <SectionLabel title="Зай" />
@@ -324,6 +504,94 @@ export function Inspector({ block, onChange }: { block: BlockSection; onChange: 
 
       {/* ── Header ── */}
       {type === 'header' && <>
+        <SectionLabel title="Байрлал" />
+        <p className="text-[10px] text-slate-500 leading-relaxed -mt-1 mb-1">
+          Canvas асаах/унтраах: дээд талын мөр — <span className="font-semibold">Загвар сонгох</span> ба харагдах хэмжээний хажууд.
+        </p>
+        {p.headerCanvas && (
+          <>
+            <Slider
+              label="Canvas өндөр (px)"
+              value={p.headerCanvasHeight ?? 88}
+              min={48}
+              max={200}
+              onChange={(v) => s('headerCanvasHeight', v)}
+            />
+            <button
+              type="button"
+              onClick={() => patch({ headerZones: { ...DEFAULT_HEADER_ZONES } })}
+              className="w-full text-[10px] font-bold py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600"
+            >
+              Байрлалыг дахин тохируулах
+            </button>
+            <p className="text-[9px] text-slate-400 leading-relaxed">
+              Canvas идэхэд сонгосон хуудсан дээрх толгойг сонгож, зураг дээрх бүлгүүдийг чирнэ. Нийлүүлэх цэсийн &quot;мөрийн&quot; тохиргоо ашиглагдахгүй.
+            </p>
+          </>
+        )}
+        <Row label="Загвар (мөр)">
+          <Select value={p.headerLayout || 'row'} onChange={v => s('headerLayout', v)} disabled={!!p.headerCanvas}
+            options={[
+              { value: 'row', label: 'Нэг мөр (лого + цэс + товч)' },
+              { value: 'stack', label: 'Хоёр мөр (лого дээр, цэс доор)' },
+            ]} />
+        </Row>
+        <Row label="Мөрийн дараалал (хэвтээ)">
+          <Select value={p.rowJustify || 'between'} onChange={v => s('rowJustify', v)} disabled={!!p.headerCanvas}
+            options={[
+              { value: 'start', label: 'Эхлүүл' },
+              { value: 'center', label: 'Төв' },
+              { value: 'end', label: 'Дуурь' },
+              { value: 'between', label: "Хооронд нь (Between)" },
+              { value: 'around', label: 'Around' },
+              { value: 'evenly', label: 'Тэнцүү' },
+            ]} />
+        </Row>
+        <Row label="Босоо тэгшлэх">
+          <Select value={p.rowItems || 'center'} onChange={v => s('rowItems', v)} disabled={!!p.headerCanvas}
+            options={[
+              { value: 'start', label: 'Дээр' },
+              { value: 'center', label: 'Дунд' },
+              { value: 'end', label: 'Доор' },
+              { value: 'baseline', label: 'Baseline' },
+              { value: 'stretch', label: 'Сунгах' },
+            ]} />
+        </Row>
+        <Row label="Намтар эргүүл">
+          <div className="flex items-center gap-2">
+            <Toggle checked={!!p.rowReverse} onChange={v => s('rowReverse', v)} />
+            <span className="text-xs text-slate-400">{p.rowReverse ? 'Тийм' : 'Үгүй'}</span>
+          </div>
+        </Row>
+        {p.headerLayout === 'stack' && <>
+          <Row label="Логоны байр (desktop)">
+            <Select value={p.stackBrandAlign || 'center'} onChange={v => s('stackBrandAlign', v)}
+              options={[
+                { value: 'start', label: 'Зүүн' },
+                { value: 'center', label: 'Төв' },
+                { value: 'end', label: 'Баруун' },
+              ]} />
+          </Row>
+          <Row label="Нав-ийн оруулга (2-р мөр)">
+            <Select value={p.stackNavJustify || 'center'} onChange={v => s('stackNavJustify', v)}
+              options={[
+                { value: 'start', label: 'Зүүн' },
+                { value: 'center', label: 'Төв' },
+                { value: 'end', label: 'Баруун' },
+                { value: 'between', label: "Хооронд" },
+                { value: 'around', label: 'Around' },
+                { value: 'evenly', label: 'Тэнцүү' },
+              ]} />
+          </Row>
+        </>}
+        <Row label="CTA-г цэснээс тусгаарлах (товчоо баруун танхимд)">
+          <div className="flex items-center gap-2">
+            <Toggle checked={p.ctaWithNav === false} onChange={v => s('ctaWithNav', v ? false : true)} />
+            <span className="text-xs text-slate-400">{(p.ctaWithNav === false) ? 'Тусад нь' : 'Цэстэй хамт'}</span>
+          </div>
+        </Row>
+        <Slider label="Үндсэн хоорондох зай (px)" value={p.contentGap ?? 0} min={0} max={48} onChange={v => s('contentGap', v || undefined)} />
+
         <SectionLabel title="Навигаци" />
         <Row label="Sticky"><div className="flex items-center gap-2"><Toggle checked={!!p.sticky} onChange={v => s('sticky', v)} /><span className="text-xs text-slate-400">{p.sticky ? 'Тийм' : 'Үгүй'}</span></div></Row>
         <Row label="Доод шугам"><div className="flex items-center gap-2"><Toggle checked={!!p.borderBottom} onChange={v => s('borderBottom', v)} /><span className="text-xs text-slate-400">{p.borderBottom ? 'Тийм' : 'Үгүй'}</span></div></Row>
@@ -348,6 +616,34 @@ export function Inspector({ block, onChange }: { block: BlockSection; onChange: 
         <Row label="Видео арын дэвсгэр"><div className="flex items-center gap-2"><Toggle checked={!!p.hasVideo} onChange={v => s('hasVideo', v)} /><span className="text-xs text-slate-400">{p.hasVideo ? 'Тийм' : 'Үгүй'}</span></div></Row>
         {p.hasVideo && <Slider label="Overlay тодруулга (%)" value={p.overlayOpacity ?? 50} min={0} max={95} onChange={v => s('overlayOpacity', v)} />}
       </>}
+
+      {isBuilderBlockCanvasType(type) && (
+        <>
+          <SectionLabel title="Canvas зураг" />
+          <p className="text-[10px] text-slate-500 leading-relaxed -mt-1 mb-1">
+            Canvas асаах/унтраах: дээд талын мөр — <span className="font-semibold">Загвар сонгох</span> ба харагдах хэмжээ.
+          </p>
+          {p.blockCanvas && (
+            <>
+              <Slider
+                label="Canvas өндөр (px)"
+                value={p.blockCanvasHeight ?? defaultBlockCanvasHeight(type)}
+                min={120}
+                max={560}
+                step={4}
+                onChange={(v) => s('blockCanvasHeight', v)}
+              />
+              <button
+                type="button"
+                onClick={() => patch({ blockCanvasZones: mergeBlockCanvasZones(type, {}) })}
+                className="w-full text-[10px] font-bold py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600"
+              >
+                Байрлалыг дахин тохируулах
+              </button>
+            </>
+          )}
+        </>
+      )}
 
       {/* ── Animation ── */}
       <SectionLabel title="Анимейшн" />

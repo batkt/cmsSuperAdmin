@@ -5,7 +5,20 @@ const getApiUrl = () => {
   if (typeof window !== 'undefined') return '/api/proxy'
   return localStorage.getItem('apiUrl') || 'http://202.179.6.77:4000'
 }
-const getToken = () => localStorage.getItem('superadminToken') || localStorage.getItem('token') || ''
+function readZustandAccessToken(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    const raw = localStorage.getItem('auth-storage')
+    if (!raw) return ''
+    const p = JSON.parse(raw) as { state?: { accessToken?: string } }
+    if (p.state?.accessToken && typeof p.state.accessToken === 'string') return p.state.accessToken
+  } catch {
+    /* ignore */
+  }
+  return ''
+}
+
+const getToken = () => readZustandAccessToken() || localStorage.getItem('superadminToken') || localStorage.getItem('token') || ''
 const isLatin1Safe = (value: string) => /^[\x00-\xFF]*$/.test(value)
 const getComponentApiBase = () => `${getApiUrl()}/api/v2/core/components`
 

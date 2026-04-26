@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import {
   Plus, Search, Edit, Trash2, Link2, Loader2, X, FolderOpen,
-  ExternalLink, RefreshCw, ChevronDown, Shield, UserCircle, Pencil,
+  ChevronDown, UserCircle, Pencil, UserPlus,
 } from 'lucide-react'
-import { userApi, projectApi } from '@/lib/api-service'
+import { api } from '@/lib/api'
+import type { ProjectSummary } from '@/lib/api'
+import { useAuthStore } from '@/stores/authStore'
 
 interface User {
   email: string
@@ -65,6 +67,7 @@ const inputCls = (isDark: boolean) =>
 
 export default function UserManagement({ isDarkMode = false }: UserManagementProps) {
   const dm = isDarkMode
+  const accessToken = useAuthStore((s) => s.accessToken)
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -88,22 +91,54 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
   const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  useEffect(() => { loadUsers() }, [])
+  const [showAddClientAdmin, setShowAddClientAdmin] = useState(false)
+  const [allProjects, setAllProjects] = useState<ProjectSummary[]>([])
+  const [clientAdminForm, setClientAdminForm] = useState({
+    email: '',
+    password: '',
+    projectName: '',
+    bindingRole: 'client-admin' as 'client-admin' | 'editor',
+  })
+
+  useEffect(() => { loadUsers() }, [accessToken])
 
   const loadUsers = async () => {
+    if (!accessToken) {
+      setIsLoading(false)
+      setError('Системд нэвтэрнэ үү. Токен олдсонгүй.')
+      return
+    }
     setIsLoading(true)
+    setError('')
     try {
-      const res = await userApi.list()
-      const list: any[] = res.data?.users || res.users || res || []
-      const withB = await Promise.all(list.map(async (u: any) => {
-        try {
-          const br = await userApi.getBindings(u.email)
-          return { ...u, bindings: br.data?.bindings || br.bindings || [] }
-        } catch { return { ...u, bindings: [] } }
-      }))
+      const res = await api.listUsers(accessToken)
+      const list: any[] = (res as any).users || []
+      const withB = await Promise.all(
+        list.map(async (u: any) => {
+          try {
+            const br = await api.getBindings(accessToken, u.email)
+            return { ...u, bindings: (br as any).bindings || [] }
+          } catch {
+            return { ...u, bindings: [] }
+          }
+        }),
+      )
       setUsers(withB)
-    } catch (e: any) { setError(e.message) }
-    finally { setIsLoading(false) }
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadProjectNames = async () => {
+    if (!accessToken) return
+    try {
+      const res = await api.listProjects(accessToken)
+      setAllProjects((res as any).projects || [])
+    } catch {
+      setAllProjects([])
+    }
   }
 
   const filteredUsers = users.filter(u =>
@@ -112,10 +147,11 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
   )
 
   const handleAddUser = async () => {
+    if (!accessToken) return
     if (!newUser.email || !newUser.password) return
     setIsSubmitting(true); setError('')
     try {
-      await userApi.create(newUser.email, newUser.password, newUser.role)
+      await api.createUser(accessToken, { email: newUser.email, password: newUser.password, role: newUser.role })
       await loadUsers()
       setNewUser({ email: '', password: '', role: 'client-admin' })
       setShowAdd(false)
@@ -123,14 +159,39 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
     finally { setIsSubmitting(false) }
   }
 
+  const handleAddClientAdmin = async () => {
+    if (!accessToken) return
+    const { email, password, projectName, bindingRole } = clientAdminForm
+    if (!email || !password || !projectName.trim()) {
+      setError('Имэйл, нууц үг, төсөл сонгогдсон эсэхийг шалгана уу')
+      return
+    }
+    setIsSubmitting(true)
+    setError('')
+    try {
+      await api.createUser(accessToken, { email, password, role: 'client-admin' })
+      await api.setUserBinding(accessToken, email, {
+        projectName: projectName.trim(),
+        roles: [bindingRole],
+      })
+      setClientAdminForm({ email: '', password: '', projectName: '', bindingRole: 'client-admin' })
+      setShowAddClientAdmin(false)
+      await loadUsers()
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleUpdateUser = async () => {
-    if (!editingUser) return
+    if (!accessToken || !editingUser) return
     setIsSubmitting(true); setError('')
     try {
       const data: any = {}
       if (editForm.password) data.password = editForm.password
       if (editForm.role !== editingUser.role) data.role = editForm.role
-      if (Object.keys(data).length > 0) await userApi.update(editingUser.email, data)
+      if (Object.keys(data).length > 0) await api.updateUser(accessToken, editingUser.email, data)
       await loadUsers()
       setShowEdit(false); setEditingUser(null)
     } catch (e: any) { setError(e.message) }
@@ -138,18 +199,19 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
   }
 
   const handleDeleteUser = async (email: string) => {
+    if (!accessToken) return
     if (!confirm(`"${email}" хэрэглэгчийг устгах уу?`)) return
     setIsSubmitting(true)
-    try { await userApi.delete(email); await loadUsers() }
+    try { await api.deleteUser(accessToken, email); await loadUsers() }
     catch (e: any) { setError(e.message) }
     finally { setIsSubmitting(false) }
   }
 
   const handleAddBinding = async () => {
-    if (!selectedUser || !newBinding.projectName) return
+    if (!accessToken || !selectedUser || !newBinding.projectName) return
     setIsSubmitting(true); setError('')
     try {
-      await userApi.addBinding(selectedUser, newBinding.projectName, newBinding.roles)
+      await api.setUserBinding(accessToken, selectedUser, { projectName: newBinding.projectName, roles: newBinding.roles })
       await loadUsers()
       setNewBinding({ projectName: '', roles: ['editor'] }); setShowBind(false); setSelectedUser(null)
     } catch (e: any) { setError(e.message) }
@@ -157,16 +219,18 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
   }
 
   const handleRemoveBinding = async (email: string, projectName: string) => {
+    if (!accessToken) return
     if (!confirm(`"${projectName}" төслийн эрхийг устгах уу?`)) return
-    try { await userApi.removeBinding(email, projectName); await loadUsers() }
+    try { await api.removeUserBinding(accessToken, email, projectName); await loadUsers() }
     catch (e: any) { setError(e.message) }
   }
 
   const handleViewProjects = async (user: User) => {
+    if (!accessToken) return
     setSelectedUserForProjects(user); setShowProjects(true); setIsLoadingProjects(true)
     try {
-      const res = await projectApi.list()
-      const all = res.data?.projects || res.projects || res || []
+      const res = await api.listProjects(accessToken)
+      const all = (res as any).projects || []
       const names = user.bindings?.map((b: Binding) => b.projectName) || []
       setUserProjects(all.filter((p: any) => names.includes(p.name)))
     } catch (e: any) { setError(e.message) }
@@ -186,14 +250,25 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
             {users.length} хэрэглэгч бүртгэлтэй байна
           </p>
         </div>
-        <button
-          id="users-add-btn"
-          onClick={() => setShowAdd(true)}
-          className={`${btnPrimary} text-sm`}
-          style={{ background: 'linear-gradient(135deg, hsl(238 84% 67%), hsl(262 83% 55%))', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}
-        >
-          <Plus className="w-4 h-4" /> Хэрэглэгч нэмэх
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => { setError(''); setClientAdminForm({ email: '', password: '', projectName: '', bindingRole: 'client-admin' }); setShowAddClientAdmin(true); loadProjectNames() }}
+            className={`${btnPrimary} text-sm`}
+            style={{ background: 'linear-gradient(135deg, hsl(199 89% 48%), hsl(238 84% 52%))', boxShadow: '0 4px 12px rgba(14,165,233,0.25)' }}
+          >
+            <UserPlus className="w-4 h-4" /> Харилцагч админ
+          </button>
+          <button
+            id="users-add-btn"
+            type="button"
+            onClick={() => setShowAdd(true)}
+            className={`${btnPrimary} text-sm`}
+            style={{ background: 'linear-gradient(135deg, hsl(238 84% 67%), hsl(262 83% 55%))', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}
+          >
+            <Plus className="w-4 h-4" /> Хэрэглэгч нэмэх
+          </button>
+        </div>
       </div>
 
       {/* Error */}
@@ -336,6 +411,97 @@ export default function UserManagement({ isDarkMode = false }: UserManagementPro
           })}
         </div>
       )}
+
+      {/* Add client admin (user + project binding) */}
+      <Modal
+        show={showAddClientAdmin}
+        onClose={() => { setShowAddClientAdmin(false); setError('') }}
+        title="Харилцагч админ нэмэх"
+        isDark={dm}
+      >
+        <p className={`text-xs mb-3 ${dm ? 'text-slate-500' : 'text-slate-500'}`}>
+          Харилцагчийн CMS (client) рүү нэвтрэх админ. Нэг алхамд бүртгэл үүсгэж, сонгосон төсөлд эрх холбоно.
+        </p>
+        <div className="space-y-4">
+          <FormField label="Имэйл" isDark={dm}>
+            <input
+              type="email"
+              value={clientAdminForm.email}
+              onChange={(e) => setClientAdminForm((f) => ({ ...f, email: e.target.value }))}
+              className={inputCls(dm)}
+              placeholder="client@example.com"
+              autoComplete="off"
+            />
+          </FormField>
+          <FormField label="Нууц үг" isDark={dm}>
+            <input
+              type="password"
+              value={clientAdminForm.password}
+              onChange={(e) => setClientAdminForm((f) => ({ ...f, password: e.target.value }))}
+              className={inputCls(dm)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+            />
+          </FormField>
+          <FormField label="Төсөл" isDark={dm}>
+            <select
+              value={clientAdminForm.projectName}
+              onChange={(e) => setClientAdminForm((f) => ({ ...f, projectName: e.target.value }))}
+              className={inputCls(dm)}
+            >
+              <option value="">— Төсөл сонгох —</option>
+              {allProjects.map((pr) => (
+                <option key={pr.name} value={pr.name}>
+                  {pr.name}
+                  {typeof (pr as any).status === 'string' ? ` (${(pr as any).status})` : ''}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Төсөлд олгох эрх" isDark={dm}>
+            <select
+              value={clientAdminForm.bindingRole}
+              onChange={(e) =>
+                setClientAdminForm((f) => ({ ...f, bindingRole: e.target.value as 'client-admin' | 'editor' }))
+              }
+              className={inputCls(dm)}
+            >
+              <option value="client-admin">Төсөл — Харилцагч админ</option>
+              <option value="editor">Төсөл — Засварлагч</option>
+            </select>
+          </FormField>
+          {error && <p className="text-sm text-red-500">{error}</p>}
+        </div>
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            type="button"
+            onClick={() => { setShowAddClientAdmin(false); setError('') }}
+            className={btnGhost(dm)}
+          >
+            Цуцлах
+          </button>
+          <button
+            type="button"
+            onClick={handleAddClientAdmin}
+            disabled={
+              isSubmitting ||
+              !clientAdminForm.email ||
+              !clientAdminForm.password ||
+              !clientAdminForm.projectName
+            }
+            className={btnPrimary}
+            style={{ background: 'linear-gradient(135deg, hsl(199 89% 48%), hsl(238 84% 55%))' }}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Үүсгэж байна...
+              </>
+            ) : (
+              'Үүсгэх ба төсөлд холбох'
+            )}
+          </button>
+        </div>
+      </Modal>
 
       {/* Add User Modal */}
       <Modal show={showAdd} onClose={() => setShowAdd(false)} title="Шинэ хэрэглэгч нэмэх" isDark={dm}>

@@ -378,6 +378,64 @@ export const api = {
     });
   },
 
+  createUser(
+    accessToken: string,
+    body: { email: string; password: string; role?: "superadmin" | "client-admin" | "editor" },
+  ) {
+    return requestJson<{
+      success: boolean;
+      user: { email: string; role: string; status?: string };
+    }>("/core/users", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify(body),
+    });
+  },
+
+  updateUser(
+    accessToken: string,
+    email: string,
+    body: { password?: string; role?: string; status?: string },
+  ) {
+    return requestJson<{
+      success: boolean;
+      user: { email: string; role: string; status?: string };
+    }>(`/core/users/${encodeURIComponent(email)}`, {
+      method: "PATCH",
+      accessToken,
+      body: JSON.stringify(body),
+    });
+  },
+
+  deleteUser(accessToken: string, email: string) {
+    return requestJson<{ success: boolean }>(
+      `/core/users/${encodeURIComponent(email)}`,
+      { method: "DELETE", accessToken },
+    );
+  },
+
+  setUserBinding(
+    accessToken: string,
+    email: string,
+    body: { projectName: string; roles?: string[] },
+  ) {
+    return requestJson<{ success: boolean; binding?: unknown }>(
+      `/core/users/${encodeURIComponent(email)}/bindings`,
+      {
+        method: "POST",
+        accessToken,
+        body: JSON.stringify(body),
+      },
+    );
+  },
+
+  removeUserBinding(accessToken: string, email: string, projectName: string) {
+    return requestJson<{ success: boolean }>(
+      `/core/users/${encodeURIComponent(email)}/bindings/${encodeURIComponent(projectName)}`,
+      { method: "DELETE", accessToken },
+    );
+  },
+
   buildProject(accessToken: string, name: string) {
     return requestJson<{ success: boolean }>(`/core/projects/${encodeURIComponent(name)}/build`, {
       method: "POST",

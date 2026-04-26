@@ -14,7 +14,13 @@ import { toast } from 'react-hot-toast'
 import { useProjectStore } from '@/stores/projectStore'
 import { useAuthStore } from '@/stores/authStore'
 import { api } from '@/lib/api'
-import { BlockSection, PageDef, DEFAULT_EMPTY_PAGES } from './builder/templates'
+import { BlockSection, PageDef, DEFAULT_EMPTY_PAGES, defaultPageDisplayName, normalizePagePath } from './builder/templates'
+import { mergeHeaderZones } from './builder/headerCanvasDefaults'
+import {
+  defaultBlockCanvasHeight,
+  isBuilderBlockCanvasType,
+  mergeBlockCanvasZones,
+} from './builder/sectionCanvasDefaults'
 import { BlockPreview } from './builder/BlockPreview'
 import { Inspector } from './builder/Inspector'
 import { TemplateGallery } from './builder/TemplateGallery'
@@ -39,23 +45,101 @@ const COMPONENT_REGISTRY = [
 function getDefaultProps(type: string): Record<string, any> {
   const base = { bgColor: '#ffffff', textColor: '#1e293b', accentColor: '#6366f1', fontFamily: 'Inter', paddingX: 48, paddingY: 60 }
   switch (type) {
-    case 'header': return { ...base, paddingY: 18, sticky: true, borderBottom: true, borderColor: '#e2e8f0', shadowSize: 'sm' }
-    case 'hero': return { ...base, paddingY: 100, align: 'center', hasImage: false, titleSize: 52, titleWeight: '800', subtitleSize: 18, btnRadius: 12, btnPaddingX: 32, btnPaddingY: 14 }
-    case 'about': return { ...base, align: 'left', hasImage: true, titleSize: 34, cardRadius: 16 }
-    case 'services': return { ...base, columns: 3, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, cardShadow: 'md' }
-    case 'features': return { ...base, columns: 3, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16 }
-    case 'products': return { ...base, columns: 3, titleSize: 34, cardBg: '#ffffff', cardRadius: 16 }
-    case 'pricing': return { ...base, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16 }
-    case 'clients': return { ...base, titleSize: 26, cardBg: '#f1f5f9', cardRadius: 10 }
-    case 'promo': return { ...base, paddingY: 72, titleSize: 36, btnRadius: 12 }
-    case 'contact': return { ...base, titleSize: 34, cardBg: '#f1f5f9', cardRadius: 12, showForm: true, formTarget: 'admin.zevtabs.mn' }
-    case 'footer': return { ...base, bgColor: '#0f172a', textColor: '#e2e8f0', paddingY: 48, align: 'center' }
+    case 'header': return { ...base, paddingY: 18, sticky: true, borderBottom: true, borderColor: '#e2e8f0', shadowSize: 'sm', title: 'Site', links: [], headerNavIndependent: false, fontSize: 20, navFontSize: 14, headerCanvas: false, headerCanvasHeight: 88 }
+    case 'hero': return { ...base, paddingY: 100, align: 'center', hasImage: false, titleSize: 52, titleWeight: '800', subtitleSize: 18, btnRadius: 12, btnPaddingX: 32, btnPaddingY: 14, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('hero') }
+    case 'about': return { ...base, align: 'left', hasImage: true, titleSize: 34, cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('about') }
+    case 'services': return { ...base, columns: 3, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, cardShadow: 'md', blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('services') }
+    case 'features': return { ...base, columns: 3, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('features') }
+    case 'products': return { ...base, columns: 3, titleSize: 34, cardBg: '#ffffff', cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('products') }
+    case 'pricing': return { ...base, titleSize: 34, cardBg: '#f8fafc', cardRadius: 16, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('pricing') }
+    case 'clients': return { ...base, titleSize: 26, cardBg: '#f1f5f9', cardRadius: 10, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('clients') }
+    case 'promo': return { ...base, paddingY: 72, titleSize: 36, btnRadius: 12, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('promo') }
+    case 'contact': return { ...base, titleSize: 34, cardBg: '#f1f5f9', cardRadius: 12, showForm: true, formTarget: 'admin.zevtabs.mn', blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('contact') }
+    case 'footer': return { ...base, bgColor: '#0f172a', textColor: '#e2e8f0', paddingY: 48, align: 'center', blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('footer') }
     default: return base
   }
 }
 
 type ViewMode = 'desktop' | 'tablet' | 'mobile'
 const VIEW_WIDTHS: Record<ViewMode, string> = { desktop: '100%', tablet: '768px', mobile: '390px' }
+
+function PillToggle({ checked, onChange, ariaLabel }: { checked: boolean; onChange: (v: boolean) => void; ariaLabel: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      aria-pressed={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative w-9 h-5 shrink-0 rounded-full transition-colors ${checked ? 'bg-indigo-500' : 'bg-slate-200'}`}
+    >
+      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${checked ? 'left-4' : 'left-0.5'}`} />
+    </button>
+  )
+}
+
+function cloneNavLinks(raw: unknown): { label: string; href: string; isExternal?: boolean }[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((x: any) => ({
+    label: String(x?.label ?? ''),
+    href: String(x?.href ?? '/').trim() || '/',
+    isExternal: !!x?.isExternal,
+  }))
+}
+
+const GENERIC_NAV_LABELS = new Set(['хуудас', 'холбоос', 'link', 'page', 'menu', ''])
+
+/** Prefer more links, then richer labels (not generic placeholders). */
+function navLinksRichnessScore(links: ReturnType<typeof cloneNavLinks>): number {
+  let score = links.length * 80
+  for (const L of links) {
+    const lab = String(L.label || '').trim()
+    if (!lab) continue
+    if (GENERIC_NAV_LABELS.has(lab.toLowerCase())) score -= 35
+    else score += 30 + Math.min(lab.length, 40)
+    if (!L.isExternal && /^https?:\/\//i.test(String(L.href || ''))) score -= 5
+  }
+  return score
+}
+
+function pickCanonicalSyncedNav(allPages: PageDef[]): { title: string; links: { label: string; href: string; isExternal?: boolean }[] } | null {
+  let best: { title: string; links: ReturnType<typeof cloneNavLinks>; n: number; score: number } | null = null
+  for (const pg of allPages) {
+    for (const b of pg.blocks) {
+      if (b.componentType !== 'header' || b.props?.headerNavIndependent === true) continue
+      const links = cloneNavLinks(b.props?.links).map((L) => ({
+        ...L,
+        href: normalizePagePath(String(L.href || '/')),
+      }))
+      const n = links.length
+      const score = navLinksRichnessScore(links)
+      if (!best || n > best.n || (n === best.n && score > best.score)) {
+        best = { title: String(b.props?.title ?? 'Site'), links, n, score }
+      }
+    }
+  }
+  if (!best) return null
+  return { title: best.title, links: best.links }
+}
+
+/** Copy canonical title+links onto every synced header (fixes API/old data where each page diverged). */
+function applySyncedNavCanonicalToPages(pages: PageDef[]): PageDef[] {
+  const canon = pickCanonicalSyncedNav(pages)
+  if (!canon) return pages
+  return pages.map(page => ({
+    ...page,
+    blocks: page.blocks.map(b => {
+      if (b.componentType !== 'header' || b.props?.headerNavIndependent === true) return b
+      return {
+        ...b,
+        props: {
+          ...b.props,
+          title: canon.title,
+          links: cloneNavLinks(canon.links),
+        },
+      }
+    }),
+  }))
+}
 
 // ─── Serialise pages → flat ComponentRecord list ───────────────────────────────
 function pagesToComponents(pages: PageDef[]) {
@@ -80,9 +164,12 @@ function componentsToPages(components: any[]): PageDef[] {
   const pageMap = new Map<string, PageDef>()
   for (const c of components) {
     const path = c.pageRoute ?? '/'
-    const rawId = c._pageId ?? path.replace(/\//g, '')
+    const rawId = (c._pageId ?? path.replace(/\//g, '')) || 'home'
     const id = rawId || 'home'
-    const name = c._pageName ?? path
+    const name =
+      c._pageName && String(c._pageName).trim()
+        ? String(c._pageName).trim()
+        : defaultPageDisplayName(path)
     if (!pageMap.has(path)) pageMap.set(path, { id, name, path, blocks: [] })
     pageMap.get(path)!.blocks.push({
       id: c.instanceId,
@@ -122,7 +209,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
       .then(res => {
         const comps = res.components ?? []
         if (comps.length > 0) {
-          const loaded = componentsToPages(comps)
+          const loaded = applySyncedNavCanonicalToPages(componentsToPages(comps))
           setPages(loaded)
           setActivePageId(loaded[0].id)
           setSelectedBlockId(null)
@@ -191,7 +278,12 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
 
   // ── Block ops ─────────────────────────────────────────────────────────────
   const addBlock = (type: string) => {
-    const b: BlockSection = { id: `block-${Date.now()}`, componentType: type, props: getDefaultProps(type), order: blocks.length }
+    let props = getDefaultProps(type)
+    if (type === 'header') {
+      const seed = pickCanonicalSyncedNav(pages)
+      if (seed) props = { ...props, title: seed.title, links: cloneNavLinks(seed.links) }
+    }
+    const b: BlockSection = { id: `block-${Date.now()}`, componentType: type, props, order: blocks.length }
     updatePageBlocks([...blocks, b]); setSelectedBlockId(b.id)
   }
 
@@ -209,15 +301,66 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
     updatePageBlocks(nb)
   }
 
+  const patchBlockProps = useCallback((blockId: string, patch: Record<string, any>) => {
+    setPages((prev) =>
+      prev.map((page) =>
+        page.id === activePageId
+          ? {
+              ...page,
+              blocks: page.blocks.map((b) =>
+                b.id === blockId ? { ...b, props: { ...b.props, ...patch } } : b,
+              ),
+            }
+          : page,
+      ),
+    )
+  }, [activePageId])
+
   const updateBlockProps = (props: Record<string, any>) => {
     if (!selectedBlock) return
-    updatePageBlocks(blocks.map(b => b.id === selectedBlock.id ? { ...b, props } : b))
+    const selId = selectedBlock.id
+    const isHeader = selectedBlock.componentType === 'header'
+    const navOwn = props.headerNavIndependent === true
+    const syncNav = isHeader && !navOwn
+
+    if (!syncNav) {
+      updatePageBlocks(blocks.map(b => (b.id === selId ? { ...b, props } : b)))
+      return
+    }
+
+    const linksCopy = cloneNavLinks(props.links)
+    const titleCopy = String(props.title ?? 'Site')
+    const fontSizeCopy = typeof props.fontSize === 'number' ? props.fontSize : Number(props.fontSize) || undefined
+    const navFontSizeCopy = typeof props.navFontSize === 'number' ? props.navFontSize : Number(props.navFontSize) || undefined
+
+    setPages(prev =>
+      prev.map(page => ({
+        ...page,
+        blocks: page.blocks.map(b => {
+          if (b.id === selId) return { ...b, props }
+          if (b.componentType === 'header' && b.props?.headerNavIndependent !== true) {
+            return {
+              ...b,
+              props: {
+                ...b.props,
+                title: titleCopy,
+                links: cloneNavLinks(linksCopy),
+                ...(fontSizeCopy != null && Number.isFinite(fontSizeCopy) ? { fontSize: fontSizeCopy } : {}),
+                ...(navFontSizeCopy != null && Number.isFinite(navFontSizeCopy) ? { navFontSize: navFontSizeCopy } : {}),
+              },
+            }
+          }
+          return b
+        }),
+      })),
+    )
   }
 
   // ── Template apply ────────────────────────────────────────────────────────
   const applyTemplate = (t: Template) => {
-    const newPages = t.pages.length === 0 ? DEFAULT_EMPTY_PAGES
+    const raw = t.pages.length === 0 ? DEFAULT_EMPTY_PAGES
       : t.pages.map(pg => ({ ...pg, blocks: pg.blocks.map(b => ({ ...b })) }))
+    const newPages = applySyncedNavCanonicalToPages(raw)
     setPages(newPages); setActivePageId(newPages[0].id); setSelectedBlockId(null); setShowGallery(false)
     toast.success(`"${t.name || 'Хоосон'}" загвар ачааллагдлаа`)
   }
@@ -243,35 +386,86 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
     <div className={`flex flex-col h-full overflow-hidden ${isDarkMode ? 'bg-slate-900 text-slate-200' : 'bg-[#f1f5f9] text-slate-900'}`}>
 
       {/* ── Topbar ── */}
-      <div className={`h-14 flex items-center justify-between px-4 shrink-0 shadow-sm z-20 border-b ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
-        <div className="flex items-center gap-3">
+      <div className={`h-14 flex items-center justify-between gap-3 px-4 shrink-0 shadow-sm z-20 border-b ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <div className="flex items-center gap-3 min-w-0 shrink-0">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
             <Layers className="w-4 h-4 text-white" />
           </div>
-          <div>
-            <h1 className={`font-bold text-sm leading-none ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{selectedProjectName}</h1>
+          <div className="min-w-0">
+            <h1 className={`font-bold text-sm leading-none truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{selectedProjectName}</h1>
             <p className={`text-[10px] font-semibold uppercase tracking-wider mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Template Designer · cmsBuilder</p>
           </div>
-          <div className={`h-6 w-px mx-1 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
+        </div>
+
+        {/* Загвар сонгох · Canvas (header) · Desktop / Tablet / Mobile — нэг мөр */}
+        <div className="flex flex-1 min-w-0 items-center justify-center gap-2 sm:gap-3 flex-wrap">
           <button onClick={() => setShowGallery(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition-colors border border-indigo-100">
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border shrink-0 ${isDarkMode
+              ? 'bg-indigo-950/50 text-indigo-300 border-indigo-800 hover:bg-indigo-900/40'
+              : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}>
             <LayoutTemplate className="w-3.5 h-3.5" /> Загвар сонгох
           </button>
+
+          {selectedBlock &&
+            (selectedBlock.componentType === 'header' || isBuilderBlockCanvasType(selectedBlock.componentType)) && (
+            <>
+              <div className={`h-6 w-px shrink-0 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={`text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>Canvas</span>
+                <PillToggle
+                  ariaLabel="Canvas горим (чирж байрлуулах)"
+                  checked={
+                    selectedBlock.componentType === 'header'
+                      ? !!selectedBlock.props?.headerCanvas
+                      : !!selectedBlock.props?.blockCanvas
+                  }
+                  onChange={(on) => {
+                    const hp = selectedBlock.props || {}
+                    if (selectedBlock.componentType === 'header') {
+                      if (on) {
+                        updateBlockProps({
+                          ...hp,
+                          headerCanvas: true,
+                          headerCanvasHeight: hp.headerCanvasHeight ?? 88,
+                          headerZones: mergeHeaderZones(hp.headerZones),
+                        })
+                      } else {
+                        updateBlockProps({ ...hp, headerCanvas: false })
+                      }
+                    } else if (isBuilderBlockCanvasType(selectedBlock.componentType)) {
+                      const t = selectedBlock.componentType
+                      if (on) {
+                        updateBlockProps({
+                          ...hp,
+                          blockCanvas: true,
+                          blockCanvasHeight: hp.blockCanvasHeight ?? defaultBlockCanvasHeight(t),
+                          blockCanvasZones: mergeBlockCanvasZones(t, hp.blockCanvasZones),
+                        })
+                      } else {
+                        updateBlockProps({ ...hp, blockCanvas: false })
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </>
+          )}
+
+          <div className={`h-6 w-px shrink-0 hidden sm:block ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
+
+          <div className={`flex items-center gap-1 p-1 rounded-xl shrink-0 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-100'}`}>
+            {([['desktop', Monitor, 'Desktop'], ['tablet', Tablet, 'Tablet'], ['mobile', Smartphone, 'Mobile']] as const).map(([mode, Icon, label]) => (
+              <button key={mode} type="button" onClick={() => setViewMode(mode as ViewMode)}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${viewMode === mode
+                  ? (isDarkMode ? 'bg-slate-700 shadow text-white' : 'bg-white shadow text-slate-800')
+                  : (isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')}`}>
+                <Icon className="w-3.5 h-3.5" /> {label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Viewport */}
-        <div className={`flex items-center gap-1 p-1 rounded-xl ${isDarkMode ? 'bg-slate-900' : 'bg-slate-100'}`}>
-          {([['desktop', Monitor, 'Desktop'], ['tablet', Tablet, 'Tablet'], ['mobile', Smartphone, 'Mobile']] as const).map(([mode, Icon, label]) => (
-            <button key={mode} onClick={() => setViewMode(mode as ViewMode)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${viewMode === mode
-                ? (isDarkMode ? 'bg-slate-700 shadow text-white' : 'bg-white shadow text-slate-800')
-                : (isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')}`}>
-              <Icon className="w-3.5 h-3.5" /> {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {isLoading && <span className="flex items-center gap-1.5 text-xs text-slate-400"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Ачааллаж байна...</span>}
           <button onClick={handleSave} disabled={isSaving}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 hover:opacity-90 transition-all disabled:opacity-60">
@@ -302,7 +496,12 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
                     }`}
                   onClick={() => { setActivePageId(pg.id); setSelectedBlockId(null) }}>
                   <FileText className="w-3.5 h-3.5 shrink-0" />
-                  <span className="text-xs font-medium flex-1 truncate">{pg.name}</span>
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    <span className="text-xs font-semibold truncate leading-tight">{pg.name}</span>
+                    <span className="text-[10px] font-mono text-slate-400 truncate leading-tight" title="Зам (pageRoute)">
+                      {pg.path === '' ? '/' : pg.path}
+                    </span>
+                  </div>
                   {pages.length > 1 && (
                     <button onClick={e => { e.stopPropagation(); removePage(pg.id) }}
                       className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-500 transition-all">
@@ -373,7 +572,11 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
                   blocks.map((block, i) => (
                     <div key={block.id} className="relative group"
                       onClick={e => { e.stopPropagation(); setSelectedBlockId(block.id) }}>
-                      <BlockPreview block={block} isSelected={selectedBlockId === block.id} />
+                      <BlockPreview
+                        block={block}
+                        isSelected={selectedBlockId === block.id}
+                        onPatchProps={selectedBlockId === block.id ? (patch) => patchBlockProps(block.id, patch) : undefined}
+                      />
                       {/* Float controls */}
                       <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex-col gap-1 bg-white rounded-xl shadow-lg border border-slate-200 p-1 z-50 transition-all ${selectedBlockId === block.id ? 'flex opacity-100' : 'flex opacity-0 group-hover:opacity-100'}`}>
                         <button onClick={e => { e.stopPropagation(); moveBlock(i, 'up') }} disabled={i === 0}
@@ -410,7 +613,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
           </div>
           <div className={`flex-1 overflow-y-auto ${isDarkMode ? 'text-slate-200' : ''}`}>
             {selectedBlock ? (
-              <Inspector block={selectedBlock} onChange={updateBlockProps} />
+              <Inspector block={selectedBlock} onChange={updateBlockProps} pages={pages} />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center">
                 <MousePointer2 className="w-8 h-8 mb-3 opacity-40" />

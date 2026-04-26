@@ -14,6 +14,31 @@ export interface PageDef {
   blocks: BlockSection[]
 }
 
+/** Readable page title when API rows have no `_pageName` in props */
+export function defaultPageDisplayName(path: string): string {
+  const p = path === '' ? '/' : path
+  const labels: Record<string, string> = {
+    '/': 'Нүүр',
+    '/about': 'Танилцуулга',
+    '/contact': 'Холбоо барих',
+    '/clients': 'Харилцагчид',
+    '/news': 'Мэдээ',
+    '/pricing': 'Үнийн санал',
+    '/services': 'Үйлчилгээ',
+  }
+  return labels[p] || p
+}
+
+/** Match href to page.path (handles missing leading slash, trailing slash). External URLs unchanged. */
+export function normalizePagePath(path: string): string {
+  let t = (path ?? '').trim()
+  if (/^https?:\/\//i.test(t)) return t
+  if (t === '' || t === '/') return '/'
+  if (!t.startsWith('/')) t = `/${t.replace(/^\/+/, '')}`
+  if (t.length > 1) t = t.replace(/\/+$/, '')
+  return t
+}
+
 export interface Template {
   id: string
   name: string
@@ -29,8 +54,12 @@ export interface Template {
 
 const H = (bg: string, text: string, accent: string, extra: Record<string, any> = {}) => ({
   bgColor: bg, textColor: text, accentColor: accent,
-  fontFamily: 'Inter', fontSize: 16, paddingX: 48, paddingY: 20,
+  fontFamily: 'Inter', fontSize: 20, paddingX: 48, paddingY: 20,
   sticky: true, borderBottom: true, borderColor: '#e2e8f0', shadowSize: 'sm',
+  title: 'Site',
+  headerNavIndependent: false,
+  navFontSize: 14,
+  links: [] as { label: string; href: string; isExternal?: boolean }[],
   ...extra,
 })
 
