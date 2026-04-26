@@ -2,7 +2,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { BlockSection } from './templates'
-import { Image as ImageIcon, Package, Copy, Trash2, MoveVertical, ArrowUp, ArrowDown } from 'lucide-react'
+import { Image as ImageIcon, Package, Copy, Trash2, MoveVertical, ArrowUp, ArrowDown, Move } from 'lucide-react'
 import { HeaderCanvasPreview } from './HeaderCanvasPreview'
 import { ZoneCanvasPreview } from './ZoneCanvasPreview'
 import { defaultBlockCanvasHeight, isBuilderBlockCanvasType } from './sectionCanvasDefaults'
@@ -31,6 +31,7 @@ interface FreeElement {
   color?: string; bg?: string; radius?: number; size?: number
   width?: string; height?: number; placeholder?: string; align?: string
   links?: unknown; href?: string; isExternal?: boolean
+  x?: number; y?: number
 }
 
 
@@ -181,16 +182,45 @@ export function renderFreeElement(el: FreeElement, accentColor: string, textColo
 
 // ─── Interactive Free Elements Renderer ────────────────────────────────────────
 
-function ElementToolbar({ el, index, total, onDuplicate, onDelete, onMoveUp, onMoveDown }: {
+function ElementToolbar({ el, index, total, onDuplicate, onDelete, onMoveUp, onMoveDown, onDragMove }: {
   el: FreeElement; index: number; total: number
   onDuplicate: () => void; onDelete: () => void
   onMoveUp: () => void; onMoveDown: () => void
+  onDragMove?: (dx: number, dy: number) => void
 }) {
   const btnBase: CSSProperties = {
     width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
     border: 'none', borderRadius: 6, cursor: 'pointer', transition: 'all 0.15s',
     background: 'transparent', color: '#64748b',
   }
+
+  const dragRef = useRef(false)
+  const lastPos = useRef({ x: 0, y: 0 })
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!onDragMove) return
+    e.stopPropagation(); e.preventDefault()
+    dragRef.current = true
+    lastPos.current = { x: e.clientX, y: e.clientY }
+
+    const onMove = (ev: PointerEvent) => {
+      if (!dragRef.current) return
+      const dx = ev.clientX - lastPos.current.x
+      const dy = ev.clientY - lastPos.current.y
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        onDragMove(dx, dy)
+        lastPos.current = { x: ev.clientX, y: ev.clientY }
+      }
+    }
+    const onUp = () => {
+      dragRef.current = false
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+    }
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+  }, [onDragMove])
+
   return (
     <div
       onClick={e => e.stopPropagation()}
@@ -204,6 +234,12 @@ function ElementToolbar({ el, index, total, onDuplicate, onDelete, onMoveUp, onM
       <span style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', padding: '6px 4px 0 2px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
         {el.type}
       </span>
+      <button style={{ ...btnBase, cursor: 'move' }} title="Зөөх (Drag)" onPointerDown={onPointerDown}
+        onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+        <Move style={{ width: 13, height: 13 }} />
+      </button>
+      <div style={{ width: 1, height: 18, background: '#e2e8f0', margin: '4px 2px' }} />
       <button style={btnBase} title="Дээш" onClick={onMoveUp} disabled={index === 0}>
         <ArrowUp style={{ width: 13, height: 13, opacity: index === 0 ? 0.25 : 1 }} />
       </button>
@@ -287,6 +323,8 @@ function InteractiveFreeElement({ el, index, total, accentColor, textColor, sele
   // Track live sizes in refs so rapid drag deltas accumulate correctly
   const liveW = useRef(0)
   const liveH = useRef(0)
+  const liveX = useRef(0)
+  const liveY = useRef(0)
 
   // Parse stored width to pixels
   const parseW = (): number => {
@@ -310,10 +348,25 @@ function InteractiveFreeElement({ el, index, total, accentColor, textColor, sele
     onPatch(el.id, { height: Math.round(liveH.current) })
   }, [el.id, onPatch, el.height, defaultH])
 
+  const handleDragMove = useCallback((dx: number, dy: number) => {
+    if (liveX.current === 0 && el.x === undefined) {
+      liveX.current = wrapRef.current?.offsetLeft || 0
+      liveY.current = wrapRef.current?.offsetTop || 0
+    } else if (liveX.current === 0) {
+      liveX.current = el.x || 0
+      liveY.current = el.y || 0
+    }
+    liveX.current += dx
+    liveY.current += dy
+    onPatch(el.id, { x: Math.round(liveX.current), y: Math.round(liveY.current) })
+  }, [el.id, onPatch, el.x, el.y])
+
   // Reset live refs when element is deselected
   if (!isActive) {
     liveW.current = 0
     liveH.current = 0
+    liveX.current = 0
+    liveY.current = 0
   }
   // Compute the wrapper width to match the element's actual width
   const computeWrapWidth = (): string | undefined => {
@@ -334,7 +387,10 @@ function InteractiveFreeElement({ el, index, total, accentColor, textColor, sele
       ref={wrapRef}
       onClick={e => { e.stopPropagation(); onSelect(isActive ? null : el.id) }}
       style={{
-        position: 'relative',
+        position: (el.x !== undefined || el.y !== undefined) ? 'absolute' : 'relative',
+        left: el.x,
+        top: el.y,
+        zIndex: (el.x !== undefined || el.y !== undefined) ? 10 : 1,
         cursor: 'pointer',
         borderRadius: 6,
         outline: isActive ? '2px solid #6366f1' : '2px solid transparent',
@@ -354,6 +410,7 @@ function InteractiveFreeElement({ el, index, total, accentColor, textColor, sele
             onDelete={() => onDelete(el.id)}
             onMoveUp={() => onReorder(index, index - 1)}
             onMoveDown={() => onReorder(index, index + 1)}
+            onDragMove={handleDragMove}
           />
           <ResizeHandle direction="right" onResizeDelta={handleResizeW} />
           <ResizeHandle direction="bottom" onResizeDelta={handleResizeH} />
@@ -443,7 +500,7 @@ export function BlockPreview({ block, isSelected, onPatchProps }: { block: Block
 
 function elId() { return `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }
 
-function getDefaultElements(type: string, accent: string): FreeElement[] {
+export function getDefaultElements(type: string, accent: string): FreeElement[] {
   switch (type) {
     case 'hero': return [
       { id: elId(), type: 'image', label: 'Зураг', width: '100%', height: 160 },

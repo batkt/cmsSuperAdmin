@@ -7,6 +7,7 @@ import {
   isBuilderBlockCanvasType,
   mergeBlockCanvasZones,
 } from './sectionCanvasDefaults'
+import { getDefaultElements } from './BlockPreview'
 import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
 
 // ─── Element types the super admin can add freely ─────────────────────────────
@@ -432,7 +433,8 @@ export function Inspector({
   const patch = (partial: Record<string, any>) => onChange({ ...(block.props || {}), ...partial })
   const s = (k: string, v: any) => patch({ [k]: v })
   const type = block.componentType
-  const elements: FreeElement[] = p._elements || []
+  const rawElements: FreeElement[] = p._elements || []
+  const elements: FreeElement[] = rawElements.length > 0 ? rawElements : (getDefaultElements(type, p.accentColor || '#6366f1') as any[])
   const setElements = (els: FreeElement[]) => patch({ _elements: els })
 
   return (
