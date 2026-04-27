@@ -352,10 +352,25 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
           })
         )
       )
-      // 3. Save design tokens
-      await api.patchDesign(accessToken, selectedProjectName, selectedProjectName, {
+      // 3. Extract theme from block-level design props and save design record
+      const allBlocks = pages.flatMap(p => p.blocks)
+      const firstBlock = allBlocks[0]
+      const heroBlock = allBlocks.find(b => b.componentType === 'hero')
+      const themeSource = heroBlock || firstBlock
+      const themePatch: Record<string, unknown> = {
         pages: pages.map(p => ({ route: p.path, title: p.name })),
-      })
+      }
+      if (themeSource?.props) {
+        const tp = themeSource.props
+        themePatch.theme = {
+          primaryColor: tp.accentColor || '#6366f1',
+          secondaryColor: tp.bgColor && tp.bgColor !== '#ffffff' ? tp.bgColor : '#1f2937',
+          fontFamily: tp.fontFamily || 'Inter',
+          darkMode: false,
+          pageBackground: tp.bgColor || '',
+        }
+      }
+      await api.patchDesign(accessToken, selectedProjectName, selectedProjectName, themePatch)
       toast.success('Загвар амжилттай хадгалагдлаа!')
     } catch (e: any) {
       toast.error(`Хадгалахад алдаа: ${e.message}`)
