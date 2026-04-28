@@ -77,10 +77,16 @@ const H = (
   borderBottom: true,
   borderColor: "#e2e8f0",
   shadowSize: "sm",
-  title: "",
+  title: "BrandName",
   headerNavIndependent: false,
   navFontSize: 14,
-  links: [] as { label: string; href: string; isExternal?: boolean }[],
+  links: [
+    { label: "Нүүр", href: "/" },
+    { label: "Бидний тухай", href: "/about" },
+    { label: "Үйлчилгээ", href: "/services" },
+    { label: "Холбоо барих", href: "/contact" }
+  ],
+  ctaText: "Эхлэх",
   ...extra,
 });
 
@@ -106,8 +112,9 @@ const HERO = (
   btnPaddingX: 32,
   btnPaddingY: 14,
   overlayOpacity: 0,
-  title: "",
-  subtitle: "",
+  title: "Орчин үеийн вэб шийдэл",
+  subtitle: "Таны бизнесийг дараагийн шатанд гаргах ухаалаг систем.",
+  primaryBtnText: "Эхлэх",
   ...extra,
 });
 
@@ -129,8 +136,13 @@ const SEC = (
   cardRadius: 16,
   cardShadow: "md",
   columns: 3,
-  title: "",
-  description: "",
+  title: "Манай үйлчилгээ",
+  description: "Бид танд хамгийн сайн чанарыг санал болгож байна.",
+  items: [
+    { title: "Чанар", description: "Хамгийн шилдэг технологи" },
+    { title: "Хурд", description: "Таны цагийг хэмнэнэ" },
+    { title: "Итгэл", description: "Найдвартай түншлэл" }
+  ],
   ...extra,
 });
 
@@ -148,8 +160,28 @@ const F = (
   paddingY: 48,
   fontSize: 14,
   align: "center",
-  title: "",
-  copyright: "",
+  title: "BrandName",
+  description: "Таны итгэлт түнш.",
+  copyright: "Бүх эрх хуулиар хамгаалагдсан.",
+  ...extra,
+});
+
+const SLIDER = (
+  bg: string,
+  text: string,
+  accent: string,
+  extra: Record<string, any> = {},
+) => ({
+  bgColor: bg,
+  textColor: text,
+  accentColor: accent,
+  fontFamily: "Outfit",
+  paddingX: 0,
+  paddingY: 0,
+  items: [
+    { title: "Орчин үеийн вэб шийдэл", description: "Таны бизнесийг дараагийн шатанд гаргах ухаалаг систем.", imageUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200" },
+    { title: "Бидний технологи - Таны амжилт", description: "Маргаашийн технологи өнөөдөр энд байна.", imageUrl: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1200" }
+  ],
   ...extra,
 });
 
@@ -925,6 +957,39 @@ export const TEMPLATE_ZEVTABS: Template = {
   })),
 };
 
+// ─── 11. Premium Dark — Glassmorphism ──────────────────────────────────────────
+export const TEMPLATE_PREMIUM_DARK: Template = {
+  id: "premium-dark",
+  name: "Premium Dark",
+  nameEn: "Premium Dark — Glassmorphism",
+  description: "Орчин үеийн, Glassmorphism эффект бүхий тансаг харанхуй загвар. Технологи болон агентлагт тохиромжтой.",
+  category: "static",
+  color: "#8b5cf6",
+  gradient: "linear-gradient(135deg,#8b5cf6,#d946ef)",
+  pages: brandedPages(
+    "pd",
+    "#a78bfa", // Purple accent
+    "#030712", // Deep black bg
+    "#f9fafb", // White text
+    "#111827", // Dark card bg
+    "Outfit",   // Modern font
+    true,      // Dark header
+  ).map(page => ({
+    ...page,
+    blocks: page.blocks.map(block => {
+      const p: Record<string, any> = { ...block.props };
+      if (p.cardRadius !== undefined) p.cardRadius = 24;
+      if (p.cardShadow !== undefined) p.cardShadow = "xl";
+      if (p.btnRadius !== undefined) p.btnRadius = 14;
+      if (block.componentType === "header") {
+        p.bgColor = "#030712"; // Fixed for now, can be rgba in inspector
+        p.sticky = true;
+      }
+      return { ...block, props: p };
+    })
+  })),
+};
+
 // ─── All templates list ────────────────────────────────────────────────────────
 export const ALL_TEMPLATES: Template[] = [
   TEMPLATE_FOODCITY,
@@ -937,6 +1002,7 @@ export const ALL_TEMPLATES: Template[] = [
   TEMPLATE_POSEASE,
   TEMPLATE_PARKEASE,
   TEMPLATE_ZEVTABS,
+  TEMPLATE_PREMIUM_DARK,
 ];
 
 export const DEFAULT_EMPTY_PAGES: PageDef[] = [
