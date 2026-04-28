@@ -115,15 +115,17 @@ const SHADOWS = [{ value: 'none', label: 'Байхгүй' },{ value: 'sm', label
 
 // ─── Free Elements Panel ──────────────────────────────────────────────────────
 
-function ElementEditor({ el, onChange, onDelete, onMove, isFirst, isLast, pages }: {
+function ElementEditor({ el, onChange, onDelete, onMove, isFirst, isLast, pages, forceOpen, onOpenToggle }: {
   el: FreeElement; onChange: (u: Partial<FreeElement>) => void
   onDelete: () => void; onMove: (d: 'up' | 'down') => void
-  isFirst: boolean; isLast: boolean; pages?: PageDef[]
+  isFirst: boolean; isLast: boolean; pages?: PageDef[]; forceOpen?: boolean; onOpenToggle?: (id: string | null) => void
 }) {
   const [open, setOpen] = useState(false)
+  const isExpanded = forceOpen || open
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 cursor-pointer" onClick={() => setOpen(v => !v)}>
+    <div className={`rounded-xl border transition-all ${isExpanded ? 'border-indigo-300 ring-2 ring-indigo-500/10' : 'border-slate-200 bg-slate-50'}`}>
+      <div className="flex items-center gap-2 px-3 py-2 cursor-pointer" onClick={() => onOpenToggle ? onOpenToggle(isExpanded ? null : el.id) : setOpen(!open)}>
         <span className="text-base leading-none">{ELEMENT_ICONS[el.type]}</span>
         <span className="text-xs font-bold text-slate-700 flex-1 truncate">{el.label}</span>
         <div className="flex items-center gap-0.5">
@@ -133,11 +135,10 @@ function ElementEditor({ el, onChange, onDelete, onMove, isFirst, isLast, pages 
             className="p-1 hover:bg-white rounded text-slate-400 disabled:opacity-25"><ChevronDown className="w-3 h-3" /></button>
           <button onClick={e => { e.stopPropagation(); onDelete() }}
             className="p-1 hover:bg-red-50 text-red-400 rounded"><Trash2 className="w-3 h-3" /></button>
-          {open ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
         </div>
       </div>
 
-      {open && (
+      {isExpanded && (
         <div className="px-3 pb-3 space-y-2.5 border-t border-slate-200 pt-2.5 bg-white">
           <Row label="Нэр">
             <input value={el.label} onChange={e => onChange({ label: e.target.value })}
@@ -233,7 +234,13 @@ const ELEMENT_TYPES: { type: ElementType; label: string }[] = [
   { type: 'menu',    label: 'Цэс' },
 ]
 
-function FreeElementsPanel({ elements, onChange, pages }: { elements: FreeElement[]; onChange: (els: FreeElement[]) => void; pages?: PageDef[] }) {
+function FreeElementsPanel({ elements, onChange, pages, selectedId, onSelect }: { 
+  elements: FreeElement[]; 
+  onChange: (els: FreeElement[]) => void; 
+  pages?: PageDef[];
+  selectedId?: string | null;
+  onSelect?: (id: string | null) => void;
+}) {
   const [showPicker, setShowPicker] = useState(false)
 
   const add = (type: ElementType) => {
@@ -258,6 +265,8 @@ function FreeElementsPanel({ elements, onChange, pages }: { elements: FreeElemen
     <div className="space-y-2">
       {elements.map((el, i) => (
         <ElementEditor key={el.id} el={el} pages={pages}
+          forceOpen={selectedId === el.id}
+          onOpenToggle={onSelect}
           onChange={p => update(el.id, p)}
           onDelete={() => remove(el.id)}
           onMove={d => move(i, d)}
@@ -426,10 +435,14 @@ export function Inspector({
   block,
   onChange,
   pages = [],
+  selectedElementId,
+  onSelectElement,
 }: {
   block: BlockSection
   onChange: (p: Record<string, any>) => void
   pages?: PageDef[]
+  selectedElementId?: string | null
+  onSelectElement?: (id: string | null) => void
 }) {
   const p = block.props || {}
   const patch = (partial: Record<string, any>) => onChange({ ...(block.props || {}), ...partial })
@@ -723,7 +736,13 @@ export function Inspector({
 
       {/* ── FREE ELEMENTS ── */}
       <SectionLabel title="Чөлөөт элементүүд" />
-      <FreeElementsPanel elements={elements} onChange={setElements} pages={pages} />
+      <FreeElementsPanel 
+        elements={elements} 
+        onChange={setElements} 
+        pages={pages} 
+        selectedId={selectedElementId}
+        onSelect={onSelectElement}
+      />
 
       <div className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 rounded-xl px-3 py-2 border border-slate-100 mt-2">
         Текст, контент болон зургийг харилцагчийн Admin CMS-ээс оруулна. Та энд зөвхөн бүтэц, загвар, өнгөний тохиргоо хийнэ.

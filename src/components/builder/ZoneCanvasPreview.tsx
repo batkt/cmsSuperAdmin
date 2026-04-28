@@ -16,6 +16,7 @@ type Props = {
   minH: number
   /** Zone key → preview node (keys must match defaults for this componentType) */
   parts: Record<string, ReactNode>
+  onSelectPart?: (key: string | null) => void
 }
 
 type DragState = { part: string; startL: number; startT: number; originX: number; originY: number }
@@ -28,6 +29,7 @@ export function ZoneCanvasPreview({
   onPatch,
   minH,
   parts,
+  onSelectPart,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -50,8 +52,12 @@ export function ZoneCanvasPreview({
   const onPointerDown = (part: string, e: React.PointerEvent) => {
     if (!isSelected || !onPatch) return
     e.stopPropagation()
-    e.nativeEvent.stopImmediatePropagation?.()
-    e.preventDefault()
+    // If it's a free element, notify the parent for selection
+    if (part.startsWith('free_')) {
+      onSelectPart?.(part.replace('free_', ''))
+    } else {
+      onSelectPart?.(null)
+    }
     const z = live[part]
     if (!z) return
     setDrag({

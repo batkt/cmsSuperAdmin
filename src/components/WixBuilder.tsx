@@ -224,6 +224,7 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
   const [pages, setPages] = useState<PageDef[]>(DEFAULT_EMPTY_PAGES)
   const [activePageId, setActivePageId] = useState('home')
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('desktop')
   const [showGallery, setShowGallery] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -371,7 +372,11 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
     const syncNav = isHeader && !navOwn
 
     if (!syncNav) {
-      updatePageBlocks(blocks.map(b => (b.id === selId ? { ...b, props } : b)))
+      setPages(prev => prev.map(page => 
+        page.id === activePageId 
+          ? { ...page, blocks: page.blocks.map(b => b.id === selId ? { ...b, props } : b) }
+          : page
+      ))
       return
     }
 
@@ -667,6 +672,8 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
                       <BlockPreview
                         block={block}
                         isSelected={selectedBlockId === block.id}
+                        selectedElementId={selectedElementId}
+                        onSelectElement={setSelectedElementId}
                         onPatchProps={(patch) => patchBlockProps(block.id, patch)}
                       />
                       {/* Float controls */}
@@ -716,7 +723,13 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
           </div>
           <div className={`flex-1 overflow-y-auto ${isDarkMode ? 'text-slate-200' : ''}`}>
             {selectedBlock ? (
-              <Inspector block={selectedBlock} onChange={updateBlockProps} pages={pages} />
+              <Inspector 
+                block={selectedBlock} 
+                onChange={updateBlockProps} 
+                pages={pages} 
+                selectedElementId={selectedElementId}
+                onSelectElement={setSelectedElementId}
+              />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center">
                 <MousePointer2 className="w-8 h-8 mb-3 opacity-40" />
