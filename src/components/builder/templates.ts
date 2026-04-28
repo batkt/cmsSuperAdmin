@@ -77,7 +77,7 @@ const H = (
   borderBottom: true,
   borderColor: "#e2e8f0",
   shadowSize: "sm",
-  title: "Site",
+  title: "",
   headerNavIndependent: false,
   navFontSize: 14,
   links: [] as { label: string; href: string; isExternal?: boolean }[],
@@ -144,6 +144,8 @@ const F = (
   paddingY: 48,
   fontSize: 14,
   align: "center",
+  title: "",
+  copyright: "",
   ...extra,
 });
 

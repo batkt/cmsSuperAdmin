@@ -51,29 +51,8 @@ const componentHeaders = (projectName: string) => {
 }
 
 const ensureComponentRequiredProps = (payload: ComponentPayload): ComponentPayload => {
-  const type = payload.componentType?.toLowerCase()
-  if (!type) return payload
-
-  const nextProps: Record<string, any> = { ...(payload.props || {}) }
-  const title = typeof nextProps.title === 'string' ? nextProps.title.trim() : ''
-
-  if ((type === 'header' || type === 'hero') && !title) {
-    nextProps.title = type === 'header' ? 'Site Header' : 'Welcome'
-  }
-  if (type === 'footer') {
-    if (!title) {
-      nextProps.title = 'Footer'
-    }
-    const copyright = typeof nextProps.copyright === 'string' ? nextProps.copyright.trim() : ''
-    if (!copyright) {
-      nextProps.copyright = `© ${new Date().getFullYear()} All rights reserved.`
-    }
-  }
-
-  return {
-    ...payload,
-    props: nextProps,
-  }
+  // We no longer inject default titles/subtitles here to ensure the data matches the visual builder exactly.
+  return payload
 }
 
 // Error handler
