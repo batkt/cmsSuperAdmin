@@ -146,14 +146,22 @@ export default function ProjectManagement({ isDarkMode, onEditProject }: Project
     setError('')
     try {
       await api.generateProject(accessToken, newProjectName.trim())
+      
+      // Close modal and refresh list immediately after successful generation
+      setIsModalOpen(false)
+      const name = newProjectName.trim()
+      setNewProjectName('')
+      await loadProjects()
+
+      // Start build in background or await if we want to show 'building' status accurately
+      // but the modal is already closed.
       try {
-        await api.buildProject(accessToken, newProjectName.trim())
+        await api.buildProject(accessToken, name)
+        // Refresh again to show 'running' status
+        await loadProjects()
       } catch (e) {
         console.warn('Auto-build failed', e)
       }
-      await loadProjects()
-      setIsModalOpen(false)
-      setNewProjectName('')
     } catch (err: any) {
       setError(err.message)
     } finally {
