@@ -649,7 +649,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
             maxWidth: 280,
           }}
         >
-          {String(p.title || 'Site')}
+          {String(p.title || '')}
         </div>
       )
       const ctaSep = p.ctaWithNav === false
@@ -719,7 +719,7 @@ function BlockPreviewContent({ block, isSelected, onPatchProps }: { block: Block
         }}
         title="Сайтын нэр (title) — Лого текстийн хэмжээ"
       >
-        {String(p.title || 'Site')}
+        {String(p.title || '')}
       </div>
     )
     if (isStack) {

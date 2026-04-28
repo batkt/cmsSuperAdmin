@@ -45,7 +45,7 @@ const COMPONENT_REGISTRY = [
 function uid() { return `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }
 
 function getDefaultProps(type: string): Record<string, any> {
-  const base = { bgColor: '#ffffff', textColor: '#1e293b', accentColor: '#6366f1', fontFamily: 'Inter', paddingX: 48, paddingY: 60 }
+  const base = { bgColor: '#ffffff', textColor: '#1e293b', accentColor: '#6366f1', fontFamily: 'Inter', paddingX: 48, paddingY: 60, title: '', subtitle: '', description: '' }
   switch (type) {
     case 'header': return { ...base, paddingY: 18, sticky: true, borderBottom: true, borderColor: '#e2e8f0', shadowSize: 'sm', title: '', links: [], headerNavIndependent: false, fontSize: 20, navFontSize: 14, headerCanvas: false, headerCanvasHeight: 88 }
     case 'hero': return { ...base, paddingY: 100, align: 'center', hasImage: false, titleSize: 52, titleWeight: '800', subtitleSize: 18, btnRadius: 12, btnPaddingX: 32, btnPaddingY: 14, blockCanvas: false, blockCanvasHeight: defaultBlockCanvasHeight('hero') }
@@ -115,7 +115,7 @@ function pickCanonicalSyncedNav(allPages: PageDef[]): { title: string; links: { 
       const n = links.length
       const score = navLinksRichnessScore(links)
       if (!best || n > best.n || (n === best.n && score > best.score)) {
-        best = { title: String(b.props?.title ?? 'Site'), links, n, score }
+        best = { title: String(b.props?.title || ''), links, n, score }
       }
     }
   }
@@ -375,8 +375,8 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
       return
     }
 
-    const linksCopy = cloneNavLinks(props.links)
-    const titleCopy = String(props.title ?? 'Site')
+    const titleCopy = String(props.title || '')
+    const linksCopy = Array.isArray(props.links) ? props.links.map(l => ({ ...l })) : []
     const fontSizeCopy = typeof props.fontSize === 'number' ? props.fontSize : Number(props.fontSize) || undefined
     const navFontSizeCopy = typeof props.navFontSize === 'number' ? props.navFontSize : Number(props.navFontSize) || undefined
 
@@ -399,9 +399,10 @@ export default function WixBuilder({ isDarkMode }: { isDarkMode?: boolean }) {
           }
           return b
         }),
-      })),
+      }))
     )
   }
+
 
   // ── Template apply ────────────────────────────────────────────────────────
   const applyTemplate = (t: Template) => {

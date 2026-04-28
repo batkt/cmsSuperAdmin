@@ -147,6 +147,7 @@ function ElementEditor({ el, onChange, onDelete, onMove, isFirst, isLast, pages 
           {(el.type === 'text' || el.type === 'button' || el.type === 'badge') && (
             <Row label="Утга / Текст">
               <input value={el.value || ''} onChange={e => onChange({ value: e.target.value })}
+                placeholder="Enter title..."
                 className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
             </Row>
           )}
@@ -154,6 +155,7 @@ function ElementEditor({ el, onChange, onDelete, onMove, isFirst, isLast, pages 
           {el.type === 'input' && (
             <Row label="Placeholder">
               <input value={el.placeholder || ''} onChange={e => onChange({ placeholder: e.target.value })}
+                placeholder="Enter subtitle..."
                 className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
             </Row>
           )}
@@ -479,6 +481,30 @@ export function Inspector({
       <Row label="Арын өнгө"><ColorInput value={p.bgColor || '#ffffff'} onChange={v => s('bgColor', v)} /></Row>
       <Row label="Текстийн өнгө"><ColorInput value={p.textColor || '#1e293b'} onChange={v => s('textColor', v)} /></Row>
       <Row label="Акцент өнгө"><ColorInput value={p.accentColor || '#6366f1'} onChange={v => s('accentColor', v)} /></Row>
+      
+      {type === 'hero' && (
+        <>
+          <SectionLabel title="Hero Content" />
+          <Row label="Гарчиг (title)">
+            <input
+              type="text"
+              value={String(p.title || '')}
+              onChange={(e) => s('title', e.target.value)}
+              placeholder="Enter title..."
+              className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            />
+          </Row>
+          <Row label="Дэд гарчиг (subtitle)">
+            <input
+              type="text"
+              value={String(p.subtitle || '')}
+              onChange={(e) => s('subtitle', e.target.value)}
+              placeholder="Enter subtitle..."
+              className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            />
+          </Row>
+        </>
+      )}
 
       {/* ── Typography ── */}
       <SectionLabel title="Бичгийн загвар" />

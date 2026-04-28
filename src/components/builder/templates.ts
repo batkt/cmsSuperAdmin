@@ -106,6 +106,8 @@ const HERO = (
   btnPaddingX: 32,
   btnPaddingY: 14,
   overlayOpacity: 0,
+  title: "",
+  subtitle: "",
   ...extra,
 });
 
@@ -127,6 +129,8 @@ const SEC = (
   cardRadius: 16,
   cardShadow: "md",
   columns: 3,
+  title: "",
+  description: "",
   ...extra,
 });
 
